@@ -34,6 +34,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 @TeleOp(name="Basic Mecanum", group="Iterative Opmode")
+@SuppressWarnings("unused")
 public class BasicMecanum extends OpMode
 {
     private ElapsedTime runtime = new ElapsedTime();
@@ -41,12 +42,7 @@ public class BasicMecanum extends OpMode
 
     public void init() {
         mecanumDrive = new MecanumDrive(hardwareMap, telemetry);
-
         telemetry.addData("Status", "Initialized");
-    }
-
-    @Override
-    public void init_loop() {
     }
 
     @Override
@@ -57,12 +53,7 @@ public class BasicMecanum extends OpMode
     @Override
     public void loop() {
         telemetry.addData("Status", "Run Time: " + runtime.toString());
-
         mecanumDrive.driveUsingGamepad(gamepad1);
+        mecanumDrive.updateDrive();
     }
-
-    @Override
-    public void stop() {
-    }
-
 }
