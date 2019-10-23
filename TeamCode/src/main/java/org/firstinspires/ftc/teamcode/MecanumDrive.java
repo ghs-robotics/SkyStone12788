@@ -25,9 +25,15 @@ class MecanumDrive {
             ROTATION_P = 1,
             ROTATION_D = 1;
 
-    MecanumDrive(HardwareMap hardwareMap, Telemetry telemetry, Gamepad gamepad) {
+    boolean fake;
+
+    MecanumDrive(HardwareMap hardwareMap, Telemetry telemetry, Gamepad gamepad, boolean fake) {
         this.telemetry = telemetry;
         this.gamepad = gamepad;
+        this.fake = fake;
+
+        if (fake)
+            return;
 
         frDrive = hardwareMap.get(DcMotor.class, "frDrive");
         flDrive = hardwareMap.get(DcMotor.class, "flDrive");
@@ -49,6 +55,12 @@ class MecanumDrive {
 
     // calculates powers according to drive mode and updates hardware
     void updateDrive() {
+        if (fake) {
+            driveUsingGamepad();
+            telemetrizePowers();
+            return;
+        }
+
         updateVelocities();
         resetLastTicks();
         switch (mode) {
@@ -115,6 +127,9 @@ class MecanumDrive {
 
     // sets RunMode for all drivebase motors
     private void setMotorModes(DcMotor.RunMode runMode) {
+        if (fake)
+            return;
+
         frDrive.setMode(runMode);
         flDrive.setMode(runMode);
         blDrive.setMode(runMode);

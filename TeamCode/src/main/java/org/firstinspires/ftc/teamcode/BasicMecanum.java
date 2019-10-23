@@ -39,9 +39,11 @@ public class BasicMecanum extends OpMode
 {
     private ElapsedTime runtime = new ElapsedTime();
     private MecanumDrive mecanumDrive;
+    VuforiaWrangler vuforiaWrangler;
 
     public void init() {
-        mecanumDrive = new MecanumDrive(hardwareMap, telemetry);
+        mecanumDrive = new MecanumDrive(hardwareMap, telemetry, gamepad1, true);
+        vuforiaWrangler = new VuforiaWrangler(hardwareMap, telemetry);
         telemetry.addData("Status", "Initialized");
     }
 
@@ -53,7 +55,13 @@ public class BasicMecanum extends OpMode
     @Override
     public void loop() {
         telemetry.addData("Status", "Run Time: " + runtime.toString());
-        mecanumDrive.driveUsingGamepad(gamepad1);
+        vuforiaWrangler.update();
+        mecanumDrive.setMode(MecanumDrive.Mode.CONTROLLER);
         mecanumDrive.updateDrive();
+    }
+
+    @Override
+    public void stop() {
+        vuforiaWrangler.close();
     }
 }
