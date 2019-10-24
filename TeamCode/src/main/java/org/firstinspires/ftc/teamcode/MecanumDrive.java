@@ -30,8 +30,8 @@ class MecanumDrive {
             DISTANCE_PER_TICK = WHEEL_CIRCUMFERENCE / COUNTS_PER_ROTATION,
             ROTATION_RATIO = DISTANCE_PER_TICK,
             AXIS_COMPONENT = 0.5,
-            TRANSLATION_P = 0.1,
-            TRANSLATION_D = 0.1,
+            TRANSLATION_P = 0.05,
+            TRANSLATION_D = 0.05,
             ROTATION_P = 1,
             ROTATION_D = 1,
             MAX_TRANSLATION_ACCEL = 1;
@@ -52,7 +52,6 @@ class MecanumDrive {
             return;
 
         setupMotorHardware();
-        resetLastTicks();
     }
 
     private void setupMotorHardware() {
@@ -70,36 +69,40 @@ class MecanumDrive {
         flDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         blDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         brDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+
+        resetLastTicks();
     }
 
     // calculates powers according to drive mode and updates hardware
     void updateDrive() {
-        if (fake) {
-            driveUsingGamepad();
-            telemetrizePowers();
-        } else {
+
+        if (!fake) {
             updateVelocities();
             resetLastTicks();
-            switch (mode) {
-                case CONTROLLER:
-                    driveUsingGamepad();
-                    break;
-                case AUTO_TRANSLATE:
-                    driveAutoTranslate();
-                    break;
-                case AUTO_ROTATE:
-                    driveAutoRotate();
-                    break;
-                case E_STOP:
-                    driveEStop();
-                    break;
-                default:
-                    driveEStop();
-                    break;
-            }
-            telemetrizePowers();
-            setPowers();
         }
+
+        switch (mode) {
+            case CONTROLLER:
+                driveUsingGamepad();
+                break;
+            case AUTO_TRANSLATE:
+                driveAutoTranslate();
+                break;
+            case AUTO_ROTATE:
+                driveAutoRotate();
+                break;
+            case E_STOP:
+                driveEStop();
+                break;
+            default:
+                driveEStop();
+                break;
+        }
+        telemetrizePowers();
+
+        if (!fake)
+            setPowers();
+
         telemetry.addData("Delta Time", deltaTime.seconds());
         deltaTime.reset();
     }
@@ -170,15 +173,27 @@ class MecanumDrive {
         setMotorModes(DcMotor.RunMode.RUN_USING_ENCODER);
 
         // +x right, +y forward, +r counterclockwise
-        frPower += y - x + r;
-        flPower += y + x - r;
-        blPower += y - x - r;
-        brPower += y + x + r;
+        frPower = y - x + r;
+        flPower = y + x - r;
+        blPower = y - x - r;
+        brPower = y + x + r;
 
         double scale = Math.max(Math.max(Math.abs(frPower), Math.abs(flPower)),
                 Math.max(Math.abs(blPower), Math.abs(brPower)));
 
         scale = 1 / scale;
+
+        /*
+        telemetry.addData("scale", scale);
+        telemetry.addData("x", x);
+        telemetry.addData("y", y);
+        telemetry.addData("frPower", frPower);
+        telemetry.addData("frPowerb", y - x);
+        telemetry.addData("frPowerc", y - x + r);
+        telemetry.addData("flPower", flPower);
+        telemetry.addData("blPower", blPower);
+        telemetry.addData("brPower", brPower);
+        */
 
         if (scale < 1) {
             frPower *= scale;
@@ -254,7 +269,7 @@ class MecanumDrive {
 
         p *= TRANSLATION_P;
         d *= TRANSLATION_D;
-        double combined = p + d;
+        double combined = p;
 
         if (Math.abs(combined - translationVel) < deltaTime * MAX_TRANSLATION_ACCEL)
             translationVel = combined;
@@ -272,6 +287,13 @@ class MecanumDrive {
         mover += Math.PI * 0.5;
         mover -= this.r;
 
+        /*
+        telemetry.addData("P", p);
+        telemetry.addData("D", d);
+        telemetry.addData("translationVel", translationVel);
+        telemetry.addData("mover", mover);
+        */
+
         driveXYR(Math.cos(mover) * translationVel, Math.sin(mover) * translationVel, 0);
     }
 
@@ -286,10 +308,12 @@ class MecanumDrive {
     private void driveEStop() {
         setMotorModes(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
-        frDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        flDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        blDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        brDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        if (!fake) {
+            frDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+            flDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+            blDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+            brDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        }
 
         frPower = 0;
         flPower = 0;

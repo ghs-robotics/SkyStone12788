@@ -35,16 +35,18 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 @TeleOp(name="Basic Mecanum", group="Iterative Opmode")
 @SuppressWarnings("unused")
-public class BasicMecanum extends OpMode
-{
+public class BasicMecanum extends OpMode {
     private ElapsedTime runtime = new ElapsedTime();
     private MecanumDrive mecanumDrive;
     VuforiaWrangler vuforiaWrangler;
+    Navigator navigator;
 
     public void init() {
         mecanumDrive = new MecanumDrive(hardwareMap, telemetry, gamepad1, true);
         vuforiaWrangler = new VuforiaWrangler(hardwareMap, telemetry, PhoneInfoPackage.getPhoneInfoPackage());
         telemetry.addData("Status", "Initialized");
+        navigator = new Navigator(mecanumDrive, vuforiaWrangler);
+        navigator.init();
     }
 
     @Override
@@ -56,7 +58,8 @@ public class BasicMecanum extends OpMode
     public void loop() {
         telemetry.addData("Status", "Run Time: " + runtime.toString());
         vuforiaWrangler.update();
-        mecanumDrive.setMode(MecanumDrive.Mode.CONTROLLER);
+        //mecanumDrive.setMode(MecanumDrive.Mode.CONTROLLER);
+        navigator.update();
         mecanumDrive.updateDrive();
     }
 

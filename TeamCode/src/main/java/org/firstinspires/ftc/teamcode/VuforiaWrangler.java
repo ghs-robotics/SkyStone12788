@@ -231,7 +231,7 @@ public class VuforiaWrangler {
 
         // Provide feedback as to where the robot is located (if we know).
         if (targetVisible) {
-            //telemetrizeTranslation(getTranslation());
+            telemetrizeTranslation(getTranslation());
             //telemetrizeOrientation(getOrientation());
         }
         else {
