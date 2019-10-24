@@ -3,14 +3,23 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 class MecanumDrive {
     Mode mode;
+
+    private ElapsedTime deltaTime;
+
+    private HardwareMap hardwareMap;
     private Telemetry telemetry;
     private Gamepad gamepad;
     private DcMotor frDrive, flDrive, blDrive, brDrive;
+    // looking out from red alliance side
+    // X axis: left to right (centered)
+    // Y axis: near to far (centered)
+    // r should be ccw rotation from +X towards +Y
     private double x, y, r, targx, targy, targr;
     private double lastx, lasty, lastr, xvel, yvel, rvel;
     private double frPower = 0, flPower = 0, blPower = 0, brPower = 0;
@@ -19,22 +28,34 @@ class MecanumDrive {
             WHEEL_CIRCUMFERENCE = 3.93701 * Math.PI,
             COUNTS_PER_ROTATION = 723.24,
             DISTANCE_PER_TICK = WHEEL_CIRCUMFERENCE / COUNTS_PER_ROTATION,
+            ROTATION_RATIO = DISTANCE_PER_TICK,
             AXIS_COMPONENT = 0.5,
-            TRANSLATION_P = 1,
-            TRANSLATION_D = 1,
+            TRANSLATION_P = 0.1,
+            TRANSLATION_D = 0.1,
             ROTATION_P = 1,
-            ROTATION_D = 1;
+            ROTATION_D = 1,
+            MAX_TRANSLATION_ACCEL = 1;
 
     boolean fake;
 
+    private double translationVel = 0;
+
     MecanumDrive(HardwareMap hardwareMap, Telemetry telemetry, Gamepad gamepad, boolean fake) {
+        this.hardwareMap = hardwareMap;
         this.telemetry = telemetry;
         this.gamepad = gamepad;
         this.fake = fake;
 
+        deltaTime = new ElapsedTime();
+
         if (fake)
             return;
 
+        setupMotorHardware();
+        resetLastTicks();
+    }
+
+    private void setupMotorHardware() {
         frDrive = hardwareMap.get(DcMotor.class, "frDrive");
         flDrive = hardwareMap.get(DcMotor.class, "flDrive");
         blDrive = hardwareMap.get(DcMotor.class, "blDrive");
@@ -49,8 +70,6 @@ class MecanumDrive {
         flDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         blDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         brDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-
-        resetLastTicks();
     }
 
     // calculates powers according to drive mode and updates hardware
@@ -58,30 +77,31 @@ class MecanumDrive {
         if (fake) {
             driveUsingGamepad();
             telemetrizePowers();
-            return;
+        } else {
+            updateVelocities();
+            resetLastTicks();
+            switch (mode) {
+                case CONTROLLER:
+                    driveUsingGamepad();
+                    break;
+                case AUTO_TRANSLATE:
+                    driveAutoTranslate();
+                    break;
+                case AUTO_ROTATE:
+                    driveAutoRotate();
+                    break;
+                case E_STOP:
+                    driveEStop();
+                    break;
+                default:
+                    driveEStop();
+                    break;
+            }
+            telemetrizePowers();
+            setPowers();
         }
-
-        updateVelocities();
-        resetLastTicks();
-        switch (mode) {
-            case CONTROLLER:
-                driveUsingGamepad();
-                break;
-            case AUTO_TRANSLATE:
-                driveAutoTranslate();
-                break;
-            case AUTO_ROTATE:
-                driveAutoRotate();
-                break;
-            case E_STOP:
-                driveEStop();
-                break;
-            default:
-                driveEStop();
-                break;
-        }
-        telemetrizePowers();
-        setPowers();
+        telemetry.addData("Delta Time", deltaTime.seconds());
+        deltaTime.reset();
     }
 
     // sets drivebase mode
@@ -205,7 +225,7 @@ class MecanumDrive {
 
         x *= DISTANCE_PER_TICK;
         y *= DISTANCE_PER_TICK;
-        r *= DISTANCE_PER_TICK;  // r is unitless value in ballpark of x and y
+        r *= ROTATION_RATIO; // TODO: replace r with REV IMU
 
         xvel = x - lastx;
         yvel = y - lasty;
@@ -227,7 +247,32 @@ class MecanumDrive {
     private void driveAutoTranslate() {
         setMotorModes(DcMotor.RunMode.RUN_USING_ENCODER);
 
-        // TODO
+        double deltaTime = this.deltaTime.seconds();
+
+        double p = Math.sqrt(Math.pow(targx - x, 2) + Math.pow(targy - y, 2));
+        double d = Math.sqrt(Math.pow(xvel, 2) + Math.pow(yvel, 2));
+
+        p *= TRANSLATION_P;
+        d *= TRANSLATION_D;
+        double combined = p + d;
+
+        if (Math.abs(combined - translationVel) < deltaTime * MAX_TRANSLATION_ACCEL)
+            translationVel = combined;
+        else if (combined - translationVel > 0)
+            translationVel += deltaTime * MAX_TRANSLATION_ACCEL;
+        else if (combined - translationVel < 0)
+            translationVel -= deltaTime * MAX_TRANSLATION_ACCEL;
+
+        if (translationVel > 1)
+            translationVel = 1;
+        if (translationVel < -1)
+            translationVel = -1;
+
+        double mover = Math.atan2(targy - y, targx - x);
+        mover += Math.PI * 0.5;
+        mover -= this.r;
+
+        driveXYR(Math.cos(mover) * translationVel, Math.sin(mover) * translationVel, 0);
     }
 
     // updates motor power suggestions for turning to a heading

@@ -20,12 +20,11 @@ import static org.firstinspires.ftc.robotcore.external.navigation.AxesOrder.XYZ;
 import static org.firstinspires.ftc.robotcore.external.navigation.AxesOrder.YZX;
 import static org.firstinspires.ftc.robotcore.external.navigation.AxesReference.EXTRINSIC;
 import static org.firstinspires.ftc.robotcore.external.navigation.VuforiaLocalizer.CameraDirection.BACK;
-import static org.firstinspires.ftc.robotcore.external.navigation.VuforiaLocalizer.CameraDirection.FRONT;
 
 public class VuforiaWrangler {
 
-    private static final VuforiaLocalizer.CameraDirection CAMERA_CHOICE = FRONT; // or BACK
-    private static final boolean PHONE_IS_PORTRAIT = true;
+    private final VuforiaLocalizer.CameraDirection CAMERA_CHOICE; // or BACK
+    private final boolean PHONE_IS_PORTRAIT;
 
     private static final String VUFORIA_KEY = VuforiaKey.VUKEY;
 
@@ -58,7 +57,23 @@ public class VuforiaWrangler {
     VuforiaTrackables targetsSkyStone;
     Telemetry telemetry;
 
-    public VuforiaWrangler(HardwareMap hardwareMap, Telemetry telemetry) {
+                                              // looking out from red alliance side
+                                              // the robot is facing to the right (along +X)
+    final float CAMERA_FORWARD_DISPLACEMENT;  // X axis: left to right (centered)
+    final float CAMERA_VERTICAL_DISPLACEMENT; // Z axis: up from ground
+    final float CAMERA_LEFT_DISPLACEMENT;     // Y axis: near to far (centered)
+
+    private boolean targetStone = false;
+    // if the target is a stone:
+    // robot is -X away from target, -Y to the right of target, +Z above target
+
+    VuforiaWrangler(HardwareMap hardwareMap, Telemetry telemetry, PhoneInfoPackage infoPackage) {
+        CAMERA_CHOICE = infoPackage.CAMERA_CHOICE;
+        PHONE_IS_PORTRAIT = infoPackage.PHONE_IS_PORTRAIT;
+        CAMERA_FORWARD_DISPLACEMENT = infoPackage.CAMERA_FORWARD_DISPLACEMENT;
+        CAMERA_VERTICAL_DISPLACEMENT = infoPackage.CAMERA_VERTICAL_DISPLACEMENT;
+        CAMERA_LEFT_DISPLACEMENT = infoPackage.CAMERA_LEFT_DISPLACEMENT;
+
         this.telemetry = telemetry;
         int cameraMonitorViewId = hardwareMap.appContext.getResources().getIdentifier("cameraMonitorViewId", "id", hardwareMap.appContext.getPackageName());
         VuforiaLocalizer.Parameters parameters = new VuforiaLocalizer.Parameters(cameraMonitorViewId);
@@ -182,9 +197,7 @@ public class VuforiaWrangler {
 
 
 
-        final float CAMERA_FORWARD_DISPLACEMENT  = 4.0f * mmPerInch; // +X
-        final float CAMERA_VERTICAL_DISPLACEMENT = 8.0f * mmPerInch; // +Z
-        final float CAMERA_LEFT_DISPLACEMENT     = 0;                // +Y
+
 
         OpenGLMatrix robotFromCamera = OpenGLMatrix
                 .translation(CAMERA_FORWARD_DISPLACEMENT, CAMERA_LEFT_DISPLACEMENT, CAMERA_VERTICAL_DISPLACEMENT)
@@ -193,28 +206,18 @@ public class VuforiaWrangler {
         for (VuforiaTrackable trackable : allTrackables)
             ((VuforiaTrackableDefaultListener) trackable.getListener()).setPhoneInformation(robotFromCamera, parameters.cameraDirection);
 
-        // WARNING:
-        // In this sample, we do not wait for PLAY to be pressed.  Target Tracking is started immediately when INIT is pressed.
-        // This sequence is used to enable the new remote DS Camera Preview feature to be used with this sample.
-        // CONSEQUENTLY do not put any driving commands in this loop.
-        // To restore the normal opmode structure, just un-comment the following line:
-
-        // waitForStart();
-
-        // Note: To use the remote camera preview:
-        // AFTER you hit Init on the Driver Station, use the "options menu" to select "Camera Stream"
-        // Tap the preview window to receive a fresh image.
-
         targetsSkyStone.activate();
     }
 
-    public void update() {
+    void update() {
         // check all the trackable targets to see which one (if any) is visible.
         targetVisible = false;
         for (VuforiaTrackable trackable : allTrackables) {
             if (((VuforiaTrackableDefaultListener)trackable.getListener()).isVisible()) {
-                telemetry.addData("Visible Target", trackable.getName());
+                //telemetry.addData("Visible Target", trackable.getName());
                 targetVisible = true;
+
+                targetStone = trackable.getName().equals("Stone Target");
 
                 // getUpdatedRobotLocation() will return null if no new information is available since
                 // the last time that call was made, or if the trackable is not currently visible.
@@ -228,22 +231,77 @@ public class VuforiaWrangler {
 
         // Provide feedback as to where the robot is located (if we know).
         if (targetVisible) {
-            // express position (translation) of robot in inches.
-            VectorF translation = lastLocation.getTranslation();
-            telemetry.addData("Pos (in)", "{X, Y, Z} = %.1f, %.1f, %.1f",
-                    translation.get(0) / mmPerInch, translation.get(1) / mmPerInch, translation.get(2) / mmPerInch);
-
-            // express the rotation of the robot in degrees.
-            Orientation rotation = Orientation.getOrientation(lastLocation, EXTRINSIC, XYZ, DEGREES);
-            telemetry.addData("Rot (deg)", "{Roll, Pitch, Heading} = %.0f, %.0f, %.0f", rotation.firstAngle, rotation.secondAngle, rotation.thirdAngle);
+            //telemetrizeTranslation(getTranslation());
+            //telemetrizeOrientation(getOrientation());
         }
         else {
             telemetry.addData("Visible Target", "none");
         }
-        telemetry.update();
+        //telemetry.update();
     }
 
-    public void close() {
+    private void telemetrizeTranslation(VectorF translation) {
+        telemetry.addData("Pos (in)", "{X, Y, Z} = %.1f, %.1f, %.1f",
+                translation.get(0) / mmPerInch, translation.get(1) / mmPerInch, translation.get(2) / mmPerInch);
+    }
+
+    private void telemetrizeOrientation(Orientation rotation) {
+        telemetry.addData("Rot (deg)", "{Roll, Pitch, Heading} = %.0f, %.0f, %.0f", rotation.firstAngle, rotation.secondAngle, rotation.thirdAngle);
+    }
+
+    VectorF getTranslation() {
+        return lastLocation.getTranslation();
+    }
+
+    double getX() {
+        return getTranslation().get(0) / mmPerInch;
+    }
+
+    double getY() {
+        return getTranslation().get(1) / mmPerInch;
+    }
+
+    double getZ() {
+        return getTranslation().get(2) / mmPerInch;
+    }
+
+    Orientation getOrientation() {
+        return Orientation.getOrientation(lastLocation, EXTRINSIC, XYZ, DEGREES);
+    }
+
+    double getRoll() {
+        return getOrientation().firstAngle;
+    }
+
+    double getPitch() {
+        return getOrientation().secondAngle;
+    }
+
+    double getHeading() {
+        return getOrientation().thirdAngle;
+    }
+
+    boolean isTargetStone() {
+        return targetStone;
+    }
+
+    boolean isTargetVisible() {
+        return targetVisible;
+    }
+
+    void close() {
         targetsSkyStone.deactivate();
     }
+
+    /*
+    if (vuforiaWrangler.isTargetVisible()) {
+            if (vuforiaWrangler.isTargetStone()) {
+                telemetry.addData("Stone Visible", "{X, Y, Z} = %.1f, %.1f, %.1f",
+                        vuforiaWrangler.getX(), vuforiaWrangler.getY(), vuforiaWrangler.getZ());
+            } else {
+                telemetry.addData("Robot Position", "{X, Y, Z} = %.1f, %.1f, %.1f",
+                        vuforiaWrangler.getX(), vuforiaWrangler.getY(), vuforiaWrangler.getZ());
+            }
+        }
+    */
 }
