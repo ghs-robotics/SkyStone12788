@@ -37,13 +37,14 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 @SuppressWarnings("unused")
 public class BasicMecanum extends OpMode {
     private ElapsedTime runtime = new ElapsedTime();
+    private IMUWrangler imuWrangler;
     private MecanumDrive mecanumDrive;
     private VuforiaWrangler vuforiaWrangler;
     private Navigator navigator;
 
     public void init() {
-        mecanumDrive = new MecanumDrive(hardwareMap, telemetry, gamepad1, false);
         vuforiaWrangler = new VuforiaWrangler(hardwareMap, telemetry, PhoneInfoPackage.getPhoneInfoPackage());
+        mecanumDrive = new MecanumDrive(hardwareMap, telemetry, gamepad1, imuWrangler, vuforiaWrangler,true, false);
         telemetry.addData("Status", "Initialized");
         navigator = new Navigator(mecanumDrive, vuforiaWrangler);
         navigator.init();

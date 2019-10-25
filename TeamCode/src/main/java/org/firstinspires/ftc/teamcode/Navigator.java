@@ -21,7 +21,7 @@ public class Navigator {
     void update() {
         if (vuforiaWrangler.isTargetVisible() && vuforiaWrangler.isTargetStone()) {
             mecanumDrive.setMode(MecanumDrive.Mode.AUTO_TRANSLATE);
-            mecanumDrive.resetPosition(vuforiaWrangler.getX(), vuforiaWrangler.getY());
+            //mecanumDrive.resetPosition(vuforiaWrangler.getX(), vuforiaWrangler.getY());
             mecanumDrive.setTarget(waypoints.get(0).x, waypoints.get(0).y);
         } else {
             mecanumDrive.setMode(MecanumDrive.Mode.E_STOP);

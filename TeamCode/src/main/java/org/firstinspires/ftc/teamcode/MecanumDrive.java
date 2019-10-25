@@ -15,13 +15,17 @@ class MecanumDrive {
     private HardwareMap hardwareMap;
     private Telemetry telemetry;
     private Gamepad gamepad;
+    private IMUWrangler imuWrangler;
+    private VuforiaWrangler vuforiaWrangler;
     private DcMotor frDrive, flDrive, blDrive, brDrive;
     // looking out from red alliance side
     // X axis: left to right (centered)
     // Y axis: near to far (centered)
     // r should be ccw rotation from +X towards +Y
-    private double x, y, r, targx, targy, targr;
-    private double lastx, lasty, lastr, xvel, yvel, rvel;
+    private double x, lastx, xvel, targx;
+    private double y, lasty, yvel, targy;
+    private double r, roffset, rvel, targr;
+
     private double frPower = 0, flPower = 0, blPower = 0, brPower = 0;
     private int frLastTicks, flLastTicks, blLastTicks, brLastTicks;
     private final double
@@ -31,30 +35,34 @@ class MecanumDrive {
             ROTATION_RATIO = DISTANCE_PER_TICK,
             AXIS_COMPONENT = 0.5,
             TRANSLATION_P = .065,
-            TRANSLATION_D = 0.01,
+            TRANSLATION_D = 0.3,
             ROTATION_P = 1,
             ROTATION_D = 1,
             MAX_TRANSLATION_ACCEL = 10;
 
-    boolean fake;
+    boolean fake, useEncoders;
 
     private double translationVel = 0;
 
-    MecanumDrive(HardwareMap hardwareMap, Telemetry telemetry, Gamepad gamepad, boolean fake) {
+    MecanumDrive(HardwareMap hardwareMap, Telemetry telemetry, Gamepad gamepad,
+                 IMUWrangler imuWrangler, VuforiaWrangler vuforiaWrangler, boolean fake, boolean useEncoders) {
         this.hardwareMap = hardwareMap;
         this.telemetry = telemetry;
         this.gamepad = gamepad;
+        this.imuWrangler = imuWrangler;
+        this.vuforiaWrangler = vuforiaWrangler;
         this.fake = fake;
+        this.useEncoders = useEncoders;
 
         deltaTime = new ElapsedTime();
-
-        if (fake)
-            return;
 
         setupMotorHardware();
     }
 
     private void setupMotorHardware() {
+        if (fake)
+            return;
+
         frDrive = hardwareMap.get(DcMotor.class, "frDrive");
         flDrive = hardwareMap.get(DcMotor.class, "flDrive");
         blDrive = hardwareMap.get(DcMotor.class, "blDrive");
@@ -76,10 +84,8 @@ class MecanumDrive {
     // calculates powers according to drive mode and updates hardware
     void updateDrive() {
 
-        if (!fake) {
-            //updateVelocities();
-            //resetLastTicks();
-        }
+        updateLocationRotationVelocity();
+        resetLastTicks();
 
         switch (mode) {
             case CONTROLLER:
@@ -98,10 +104,9 @@ class MecanumDrive {
                 driveEStop();
                 break;
         }
-        telemetrizePowers();
 
-        if (!fake)
-            setPowers();
+        telemetrizePowers();
+        setPowers();
 
         telemetry.addData("Delta Time", deltaTime.seconds());
         deltaTime.reset();
@@ -119,8 +124,20 @@ class MecanumDrive {
     }
 
     // resets orientation (counterclockwise from +y)
-    void resetRotation(double r) {
-        this.r = r;
+    void proposeRotation(double proposedr) {
+        double currentr = (this.r % 360 + 360) % 360;
+        if (currentr > 180)
+            currentr -= 360;
+
+        proposedr = (proposedr % 360 + 360) % 360;
+        if (proposedr > 180)
+            proposedr -= 360;
+
+        this.roffset = proposedr - currentr;
+
+        this.roffset = (this.roffset % 360 + 360) % 360;
+        if (this.roffset > 180)
+            this.roffset -= 360;
     }
 
     // sets AUTO_TRANSLATE mode target x and y
@@ -142,6 +159,9 @@ class MecanumDrive {
 
     // writes motor powers to motors
     private void setPowers() {
+        if (fake)
+            return;
+
         frDrive.setPower(frPower);
         flDrive.setPower(flPower);
         blDrive.setPower(blPower);
@@ -161,6 +181,9 @@ class MecanumDrive {
 
     // resets last known ticks to current ticks for all motors
     private void resetLastTicks() {
+        if (fake)
+            return;
+
         frLastTicks = frDrive.getCurrentPosition();
         flLastTicks = flDrive.getCurrentPosition();
         blLastTicks = blDrive.getCurrentPosition();
@@ -170,7 +193,10 @@ class MecanumDrive {
     // drives using x, y, and r powers in range of -1 to 1
     private void driveXYR(double x, double y, double r) {
 
-        setMotorModes(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        if (useEncoders)
+            setMotorModes(DcMotor.RunMode.RUN_USING_ENCODER);
+        else
+            setMotorModes(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         // +x right, +y forward, +r counterclockwise
         frPower = y - x + r;
@@ -222,35 +248,49 @@ class MecanumDrive {
     }
 
     // updates x, y, and r velocities, resets last variables
-    private void updateVelocities() {
-        double frTickDiff = frDrive.getCurrentPosition() - frLastTicks;
-        double flTickDiff = flDrive.getCurrentPosition() - flLastTicks;
-        double blTickDiff = blDrive.getCurrentPosition() - blLastTicks;
-        double brTickDiff = brDrive.getCurrentPosition() - brLastTicks;
-
+    private void updateLocationRotationVelocity() {
         lastx = x;
         lasty = y;
-        lastr = r;
 
-        double[] inverseXY = inverseXY(frTickDiff, flTickDiff, blTickDiff, brTickDiff);
-        double inverseR = inverseR(frTickDiff, flTickDiff, blTickDiff, brTickDiff);
-        x = inverseXY[0];
-        y = inverseXY[1];
-        r = inverseR;
+        if (useEncoders) {
+            double frTickDiff = frDrive.getCurrentPosition() - frLastTicks;
+            double flTickDiff = flDrive.getCurrentPosition() - flLastTicks;
+            double blTickDiff = blDrive.getCurrentPosition() - blLastTicks;
+            double brTickDiff = brDrive.getCurrentPosition() - brLastTicks;
 
-        x *= DISTANCE_PER_TICK;
-        y *= DISTANCE_PER_TICK;
-        r *= ROTATION_RATIO; // TODO: replace r with REV IMU
+            double[] inverseXY = inverseXY(frTickDiff, flTickDiff, blTickDiff, brTickDiff);
+            x = inverseXY[0];
+            y = inverseXY[1];
 
-        xvel = x - lastx;
-        yvel = y - lasty;
-        rvel = r - lastr;
+            x *= DISTANCE_PER_TICK;
+            y *= DISTANCE_PER_TICK;
+
+            xvel = x - lastx;
+            yvel = y - lasty;
+        }
+
+        telemetry.addData("hasNewInfo", vuforiaWrangler.hasNewInfo());
+        telemetry.addData("isTargetStone", vuforiaWrangler.isTargetStone());
+        telemetry.addData("isTargetVisible", vuforiaWrangler.isTargetVisible());
+
+        // in real usage, it would be if the target is not a stone
+        if (vuforiaWrangler.hasNewInfo() && vuforiaWrangler.isTargetStone() && vuforiaWrangler.isTargetVisible()) {
+            x = vuforiaWrangler.getX();
+            y = vuforiaWrangler.getY();
+
+            xvel = x - lastx;
+            yvel = y - lasty;
+        }
+
+        if (fake)
+            return;
+
+        r = imuWrangler.getNiceHeading();
+        rvel = imuWrangler.getHeadingVelocity();
     }
 
     // controller drive: left stick translation, right stick rotation
     private void driveUsingGamepad() {
-        setMotorModes(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-
         double x =  gamepad.left_stick_x;
         double y = -gamepad.left_stick_y;
         double r = -gamepad.right_stick_x;
@@ -260,8 +300,6 @@ class MecanumDrive {
 
     // updates motor power suggestions for moving to a location
     private void driveAutoTranslate() {
-        setMotorModes(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-
         double deltaTime = this.deltaTime.seconds();
 
         double p = Math.sqrt(Math.pow(targx - x, 2) + Math.pow(targy - y, 2));
@@ -269,22 +307,19 @@ class MecanumDrive {
 
         p *= TRANSLATION_P;
         d *= TRANSLATION_D;
-        double combined = p;
+        double combined = p - d;
 
-        /*
-
-        if (Math.abs(combined - translationVel) < deltaTime * MAX_TRANSLATION_ACCEL)
+        /*if (Math.abs(combined - translationVel) < deltaTime * MAX_TRANSLATION_ACCEL)
             translationVel = combined;
         else if (combined - translationVel > 0)
             translationVel += deltaTime * MAX_TRANSLATION_ACCEL;
         else if (combined - translationVel < 0)
-            translationVel -= deltaTime * MAX_TRANSLATION_ACCEL;
-
-         */
+            translationVel -= deltaTime * MAX_TRANSLATION_ACCEL;*/
 
         translationVel = combined;
 
-
+        if (translationVel < -1000 || translationVel > 1000)
+            translationVel = 0;
         if (translationVel > 1)
             translationVel = 1;
         if (translationVel < -1)
@@ -294,14 +329,10 @@ class MecanumDrive {
         mover += Math.PI * 0.5;
         mover -= this.r;
 
-
         telemetry.addData("P", p);
         telemetry.addData("D", d);
         telemetry.addData("translationVel", translationVel);
         telemetry.addData("mover", mover);
-        telemetry.addData("t1", Math.cos(mover));
-        telemetry.addData("t2", Math.cos(mover) * translationVel);
-
 
         driveXYR(Math.cos(mover) * translationVel, Math.sin(mover) * translationVel, 0);
     }

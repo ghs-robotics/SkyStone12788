@@ -53,9 +53,9 @@ class VuforiaWrangler {
     private float phoneYRotate    = 0;
     private float phoneZRotate    = 0;
 
-    List<VuforiaTrackable> allTrackables;
-    VuforiaTrackables targetsSkyStone;
-    Telemetry telemetry;
+    private List<VuforiaTrackable> allTrackables;
+    private VuforiaTrackables targetsSkyStone;
+    private Telemetry telemetry;
 
                                               // looking out from red alliance side
                                               // the robot is facing to the right (along +X)
@@ -64,6 +64,7 @@ class VuforiaWrangler {
     final float CAMERA_LEFT_DISPLACEMENT;     // Y axis: near to far (centered)
 
     private boolean targetStone = false;
+    private boolean noNewInfo = false;
     // if the target is a stone:
     // robot is -X away from target, -Y to the right of target, +Z above target
 
@@ -224,6 +225,9 @@ class VuforiaWrangler {
                 OpenGLMatrix robotLocationTransform = ((VuforiaTrackableDefaultListener)trackable.getListener()).getUpdatedRobotLocation();
                 if (robotLocationTransform != null) {
                     lastLocation = robotLocationTransform;
+                    noNewInfo = false;
+                } else {
+                    noNewInfo = true;
                 }
                 break;
             }
@@ -287,6 +291,10 @@ class VuforiaWrangler {
 
     boolean isTargetVisible() {
         return targetVisible;
+    }
+
+    boolean hasNewInfo() {
+        return !noNewInfo;
     }
 
     void close() {
