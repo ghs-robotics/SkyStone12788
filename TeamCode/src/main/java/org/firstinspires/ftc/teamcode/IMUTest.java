@@ -33,38 +33,41 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-@TeleOp(name="Basic Mecanum", group="Iterative Opmode")
+@TeleOp(name = "IMU Test", group = "Iterative Opmode")
 @SuppressWarnings("unused")
-public class BasicMecanum extends OpMode {
-    private ElapsedTime runtime = new ElapsedTime();
-    private MecanumDrive mecanumDrive;
-    private VuforiaWrangler vuforiaWrangler;
-    private Navigator navigator;
+public class IMUTest extends OpMode {
+  private IMUWrangler imuWrangler;
 
-    public void init() {
-        mecanumDrive = new MecanumDrive(hardwareMap, telemetry, gamepad1, false);
-        vuforiaWrangler = new VuforiaWrangler(hardwareMap, telemetry, PhoneInfoPackage.getPhoneInfoPackage());
-        telemetry.addData("Status", "Initialized");
-        navigator = new Navigator(mecanumDrive, vuforiaWrangler);
-        navigator.init();
-    }
+  private ElapsedTime runtime = new ElapsedTime();
 
-    @Override
-    public void start() {
-        runtime.reset();
-    }
+  @Override
+  public void init() {
+    imuWrangler = new IMUWrangler(hardwareMap);
 
-    @Override
-    public void loop() {
-        telemetry.addData("Status", "Run Time: " + runtime.toString());
-        vuforiaWrangler.update();
-        //mecanumDrive.setMode(MecanumDrive.Mode.CONTROLLER);
-        navigator.update();
-        mecanumDrive.updateDrive();
-    }
+    telemetry.addData("Status", "Initialized");
+  }
 
-    @Override
-    public void stop() {
-        vuforiaWrangler.close();
-    }
+  @Override
+  public void init_loop() {
+  }
+
+  @Override
+  public void start() {
+    imuWrangler.start();
+    runtime.reset();
+  }
+  @Override
+  public void loop() {
+    telemetry.addData("Status", "Run Time: " + runtime.toString());
+    imuWrangler.update();
+    telemetry.addData("imu status", imuWrangler.getStatus());
+    telemetry.addData("imu calibration", imuWrangler.getCalibration());
+    telemetry.addData("heading", imuWrangler.getHeading());
+    telemetry.addData("roll", imuWrangler.getRoll());
+    telemetry.addData("pitch", imuWrangler.getPitch());
+    telemetry.addData("nice heading", imuWrangler.getNiceHeading());
+    telemetry.addData("heading velocity", imuWrangler.getHeadingVelocity());
+    telemetry.addData("roll velocity", imuWrangler.getRollVelocity());
+    telemetry.addData("pitch velocity", imuWrangler.getPitchVelocity());
+  }
 }

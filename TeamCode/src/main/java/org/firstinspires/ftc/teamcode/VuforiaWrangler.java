@@ -21,7 +21,7 @@ import static org.firstinspires.ftc.robotcore.external.navigation.AxesOrder.YZX;
 import static org.firstinspires.ftc.robotcore.external.navigation.AxesReference.EXTRINSIC;
 import static org.firstinspires.ftc.robotcore.external.navigation.VuforiaLocalizer.CameraDirection.BACK;
 
-public class VuforiaWrangler {
+class VuforiaWrangler {
 
     private final VuforiaLocalizer.CameraDirection CAMERA_CHOICE; // or BACK
     private final boolean PHONE_IS_PORTRAIT;
