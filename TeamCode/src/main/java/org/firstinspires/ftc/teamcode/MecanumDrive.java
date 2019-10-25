@@ -30,11 +30,11 @@ class MecanumDrive {
             DISTANCE_PER_TICK = WHEEL_CIRCUMFERENCE / COUNTS_PER_ROTATION,
             ROTATION_RATIO = DISTANCE_PER_TICK,
             AXIS_COMPONENT = 0.5,
-            TRANSLATION_P = 0.05,
-            TRANSLATION_D = 0.05,
+            TRANSLATION_P = .065,
+            TRANSLATION_D = 0.01,
             ROTATION_P = 1,
             ROTATION_D = 1,
-            MAX_TRANSLATION_ACCEL = 1;
+            MAX_TRANSLATION_ACCEL = 10;
 
     boolean fake;
 
@@ -77,8 +77,8 @@ class MecanumDrive {
     void updateDrive() {
 
         if (!fake) {
-            updateVelocities();
-            resetLastTicks();
+            //updateVelocities();
+            //resetLastTicks();
         }
 
         switch (mode) {
@@ -170,7 +170,7 @@ class MecanumDrive {
     // drives using x, y, and r powers in range of -1 to 1
     private void driveXYR(double x, double y, double r) {
 
-        setMotorModes(DcMotor.RunMode.RUN_USING_ENCODER);
+        setMotorModes(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         // +x right, +y forward, +r counterclockwise
         frPower = y - x + r;
@@ -183,7 +183,7 @@ class MecanumDrive {
 
         scale = 1 / scale;
 
-        /*
+
         telemetry.addData("scale", scale);
         telemetry.addData("x", x);
         telemetry.addData("y", y);
@@ -193,7 +193,7 @@ class MecanumDrive {
         telemetry.addData("flPower", flPower);
         telemetry.addData("blPower", blPower);
         telemetry.addData("brPower", brPower);
-        */
+
 
         if (scale < 1) {
             frPower *= scale;
@@ -249,7 +249,7 @@ class MecanumDrive {
 
     // controller drive: left stick translation, right stick rotation
     private void driveUsingGamepad() {
-        setMotorModes(DcMotor.RunMode.RUN_USING_ENCODER);
+        setMotorModes(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         double x =  gamepad.left_stick_x;
         double y = -gamepad.left_stick_y;
@@ -260,7 +260,7 @@ class MecanumDrive {
 
     // updates motor power suggestions for moving to a location
     private void driveAutoTranslate() {
-        setMotorModes(DcMotor.RunMode.RUN_USING_ENCODER);
+        setMotorModes(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         double deltaTime = this.deltaTime.seconds();
 
@@ -271,12 +271,19 @@ class MecanumDrive {
         d *= TRANSLATION_D;
         double combined = p;
 
+        /*
+
         if (Math.abs(combined - translationVel) < deltaTime * MAX_TRANSLATION_ACCEL)
             translationVel = combined;
         else if (combined - translationVel > 0)
             translationVel += deltaTime * MAX_TRANSLATION_ACCEL;
         else if (combined - translationVel < 0)
             translationVel -= deltaTime * MAX_TRANSLATION_ACCEL;
+
+         */
+
+        translationVel = combined;
+
 
         if (translationVel > 1)
             translationVel = 1;
@@ -287,17 +294,19 @@ class MecanumDrive {
         mover += Math.PI * 0.5;
         mover -= this.r;
 
-        /*
+
         telemetry.addData("P", p);
         telemetry.addData("D", d);
         telemetry.addData("translationVel", translationVel);
         telemetry.addData("mover", mover);
-        */
+        telemetry.addData("t1", Math.cos(mover));
+        telemetry.addData("t2", Math.cos(mover) * translationVel);
+
 
         driveXYR(Math.cos(mover) * translationVel, Math.sin(mover) * translationVel, 0);
     }
 
-    // updates motor power suggestions for turning to a heading
+    // updates motor suggestions for turning to a heading
     private void driveAutoRotate() {
         setMotorModes(DcMotor.RunMode.RUN_USING_ENCODER);
 

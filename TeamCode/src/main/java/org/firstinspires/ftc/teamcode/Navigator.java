@@ -15,7 +15,7 @@ public class Navigator {
     }
 
     void init() {
-        waypoints.add(new Position(-20, 0));
+        waypoints.add(new Position(-15, 0));
     }
 
     void update() {
