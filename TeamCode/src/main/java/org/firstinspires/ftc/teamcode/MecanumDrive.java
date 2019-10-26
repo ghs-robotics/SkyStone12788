@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.ElapsedTime;
+import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
@@ -36,11 +37,14 @@ class MecanumDrive {
             AXIS_COMPONENT = 0.5,
             TRANSLATION_P = .065,
             TRANSLATION_D = 0.3,
-            ROTATION_P = 1,
-            ROTATION_D = 1,
+            ROTATION_P = .013,
+            ROTATION_D = .0017,
+            ROTATION_SPEED = 0.5,
             MAX_TRANSLATION_ACCEL = 10;
 
     boolean fake, useEncoders;
+
+    boolean done;
 
     private double translationVel = 0;
 
@@ -83,7 +87,7 @@ class MecanumDrive {
 
     // calculates powers according to drive mode and updates hardware
     void updateDrive() {
-
+        done = false;
         updateLocationRotationVelocity();
         resetLastTicks();
 
@@ -117,6 +121,19 @@ class MecanumDrive {
         this.mode = mode;
     }
 
+    double getError() {
+        if (mode == Mode.AUTO_TRANSLATE)
+            return Math.sqrt((targx - x) * (targx - x)
+                           + (targy - y) * (targy - y));
+        if (mode == Mode.AUTO_ROTATE)
+            return Math.abs(targr - r) / 10;
+        return 0;
+    }
+
+    boolean isDone() {
+        return done;
+    }
+
     // sets the position on the field to a known position
     void resetPosition(double x, double y) {
         this.x = x;
@@ -138,6 +155,10 @@ class MecanumDrive {
         this.roffset = (this.roffset % 360 + 360) % 360;
         if (this.roffset > 180)
             this.roffset -= 360;
+    }
+
+    private double getAdjustedRotation() {
+        return r + roffset;
     }
 
     // sets AUTO_TRANSLATE mode target x and y
@@ -339,9 +360,24 @@ class MecanumDrive {
 
     // updates motor suggestions for turning to a heading
     private void driveAutoRotate() {
-        setMotorModes(DcMotor.RunMode.RUN_USING_ENCODER);
+        double p = targr - r;
+        double d = rvel;
+        p *= ROTATION_P;
+        d *= ROTATION_D;
+        double combined = p - d;
 
-        // TODO
+        telemetry.addData("rotation", r);
+        telemetry.addData("rotation velocity", rvel);
+        telemetry.addData("combined", combined);
+        if (Math.abs(targr - r) > 1 && Math.abs(combined) < .11 && Math.abs(combined) > .01)
+            combined *= .11 / Math.abs(combined);
+        combined = Range.clip(combined, -ROTATION_SPEED, ROTATION_SPEED);
+        if (Math.abs(targr - r) <= 1 && Math.abs(rvel) < .5) {
+            combined = 0;
+            done = true;
+        }
+        telemetry.addData("updated combined", combined);
+        driveXYR(0, 0, combined);
     }
 
     // emergency stop--coasts with no power

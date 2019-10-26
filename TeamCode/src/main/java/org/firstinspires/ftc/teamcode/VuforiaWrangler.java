@@ -47,6 +47,7 @@ class VuforiaWrangler {
 
     // Class Members
     private OpenGLMatrix lastLocation = null;
+    private double xvel, yvel, zvel;
     private VuforiaLocalizer vuforia = null;
     private boolean targetVisible = false;
     private float phoneXRotate    = 0;
@@ -307,7 +308,7 @@ class VuforiaWrangler {
                 telemetry.addData("Stone Visible", "{X, Y, Z} = %.1f, %.1f, %.1f",
                         vuforiaWrangler.getX(), vuforiaWrangler.getY(), vuforiaWrangler.getZ());
             } else {
-                telemetry.addData("Robot Position", "{X, Y, Z} = %.1f, %.1f, %.1f",
+                telemetry.addData("Robot Pose", "{X, Y, Z} = %.1f, %.1f, %.1f",
                         vuforiaWrangler.getX(), vuforiaWrangler.getY(), vuforiaWrangler.getZ());
             }
         }

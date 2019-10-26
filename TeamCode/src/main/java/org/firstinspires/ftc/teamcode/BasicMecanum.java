@@ -43,23 +43,33 @@ public class BasicMecanum extends OpMode {
     private Navigator navigator;
 
     public void init() {
+        imuWrangler = new IMUWrangler(hardwareMap);
         vuforiaWrangler = new VuforiaWrangler(hardwareMap, telemetry, PhoneInfoPackage.getPhoneInfoPackage());
-        mecanumDrive = new MecanumDrive(hardwareMap, telemetry, gamepad1, imuWrangler, vuforiaWrangler,true, false);
+        mecanumDrive = new MecanumDrive(hardwareMap, telemetry, gamepad1, imuWrangler, vuforiaWrangler,false, false);
         telemetry.addData("Status", "Initialized");
-        navigator = new Navigator(mecanumDrive, vuforiaWrangler);
+        navigator = new Navigator(mecanumDrive, vuforiaWrangler, telemetry);
         navigator.init();
     }
 
     @Override
     public void start() {
         runtime.reset();
+        imuWrangler.start();
     }
 
     @Override
     public void loop() {
         telemetry.addData("Status", "Run Time: " + runtime.toString());
+        imuWrangler.update();
         vuforiaWrangler.update();
-        //mecanumDrive.setMode(MecanumDrive.Mode.CONTROLLER);
+        /*
+        if (gamepad1.a)
+            navigator.update();
+        else if (gamepad1.b) {
+            mecanumDrive.setMode(MecanumDrive.Mode.AUTO_ROTATE);
+            mecanumDrive.setTarget(0);
+        } else
+            mecanumDrive.setMode(MecanumDrive.Mode.CONTROLLER);*/
         navigator.update();
         mecanumDrive.updateDrive();
     }
