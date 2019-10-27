@@ -35,12 +35,14 @@ class MecanumDrive {
             DISTANCE_PER_TICK = WHEEL_CIRCUMFERENCE / COUNTS_PER_ROTATION,
             ROTATION_RATIO = DISTANCE_PER_TICK,
             AXIS_COMPONENT = 0.5,
-            TRANSLATION_P = .065,
-            TRANSLATION_D = 0.3,
+            TRANSLATION_P = .02,
+            TRANSLATION_D = 0.01,
             ROTATION_P = .013,
             ROTATION_D = .0017,
             ROTATION_SPEED = 0.5,
-            MAX_TRANSLATION_ACCEL = 10;
+            MAX_TRANSLATION_ACCEL = 10,
+            ACCEPTABLE_POSITION_ERROR = 0.5,
+            TRANSLATION_POWER_DEADZONE = 0.01;
 
     boolean fake, useEncoders;
 
@@ -258,27 +260,40 @@ class MecanumDrive {
         telemetry.addData("brPower", brPower);
 
         if (scale < 1) {
+            scale *= 0.5;
             frPower *= scale;
             flPower *= scale;
             blPower *= scale;
             brPower *= scale;
         }
 
-//        if (scale > 1 / .1)
-//            scale = 0;
+//        double totalPower = Math.abs(frPower) + Math.abs(flPower) + Math.abs(blPower) + Math.abs(brPower);
 //
-////        scale *= .15;
+//        double minimumPower = .12;
+//        double minimumTotalPower = .24;
 //
-//        scale = 10000;
+//        if (scale < 1 / TRANSLATION_POWER_DEADZONE && totalPower < minimumTotalPower) {//&& scale > 1 / minimumPower) {
+//            scale *= minimumPower;
+//            frPower *= scale;
+//            flPower *= scale;
+//            blPower *= scale;
+//            brPower *= scale;
+//        }
 
+        double totalPower = Math.abs(frPower) + Math.abs(flPower) + Math.abs(blPower) + Math.abs(brPower);
 
+        double minimumPower = .15;
+        double minimumTotalPower = .30;
 
-//        double powerSet = .15;
-//
-//        frPower = Range.clip(frPower * scale, -powerSet, powerSet);
-//        flPower = Range.clip(flPower * scale, -powerSet, powerSet);
-//        blPower = Range.clip(blPower * scale, -powerSet, powerSet);
-//        brPower = Range.clip(brPower * scale, -powerSet, powerSet);
+        if (scale < 1 / TRANSLATION_POWER_DEADZONE && totalPower < minimumTotalPower) {//&& scale > 1 / minimumPower) {
+            if (transdone && !rotdone)
+                scale *= .5;
+            scale *= minimumPower;
+            frPower *= scale;
+            flPower *= scale;
+            blPower *= scale;
+            brPower *= scale;
+        }
     }
 
     // calculates the mecanum inverse translation transform of 4 wheel values
@@ -332,8 +347,8 @@ class MecanumDrive {
 
             proposeRotation(vuforiaWrangler.getHeading());
 
-            //xvel = x - lastx;
-            //yvel = y - lasty;
+            xvel = x - lastx;
+            yvel = y - lasty;
         }
 
         if (fake)
@@ -353,14 +368,17 @@ class MecanumDrive {
 
         translationVel = combined;
 
-        double minSpeed = .15;
-        double translationDeadzone = 0.05;
+        double minSpeed = .17;
+
         double maxSpeed = .5;
 
-        if (getTranslationError() > 1 && Math.abs(translationVel) < minSpeed && Math.abs(translationVel) > translationDeadzone)
-            translationVel *= minSpeed / Math.abs(translationVel);
+//        if (getTranslationError() > ACCEPTABLE_POSITION_ERROR
+//                && Math.abs(translationVel) < minSpeed
+//                && Math.abs(translationVel) > TRANSLATION_POWER_DEADZONE)
+//            translationVel *= minSpeed / Math.abs(translationVel);
 
-        if (Math.abs(translationVel) <= translationDeadzone && getTranslationError() <= 1) {
+        if (Math.abs(translationVel) <= TRANSLATION_POWER_DEADZONE
+                && getTranslationError() <= ACCEPTABLE_POSITION_ERROR) {
             transdone = true;
             translationVel = 0;
         }
@@ -378,8 +396,7 @@ class MecanumDrive {
         telemetry.addData("D", d);
         telemetry.addData("translationVel", translationVel);
         telemetry.addData("mover", mover);
-
-
+        telemetry.addData("translation error", getTranslationError());
 
         return new double[] {Math.cos(mover) * translationVel, Math.sin(mover) * translationVel};
     }
@@ -396,10 +413,10 @@ class MecanumDrive {
         telemetry.addData("rotation velocity", rvel);
         telemetry.addData("combined", combined);
 
-        double minSpeed = .11;
+//        double minSpeed = .11;
 
-        if (Math.abs(targr - getAdjustedRotation()) > 1 && Math.abs(combined) < minSpeed && Math.abs(combined) > .01)
-            combined *= minSpeed / Math.abs(combined);
+//        if (Math.abs(targr - getAdjustedRotation()) > 1 && Math.abs(combined) < minSpeed && Math.abs(combined) > .01)
+//            combined *= minSpeed / Math.abs(combined);
 
         combined = Range.clip(combined, -ROTATION_SPEED, ROTATION_SPEED);
         if (Math.abs(targr - getAdjustedRotation()) <= 1 && Math.abs(rvel) < .5) {

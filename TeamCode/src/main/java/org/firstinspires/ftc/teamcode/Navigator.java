@@ -36,7 +36,14 @@ public class Navigator {
         waypoints.add(new Pose(true, 4));
         */
 
-        waypoints.add(new Pose(50, -35, 0));
+        waypoints.add(new Pose(45, -38, 0));
+        waypoints.add(new Pose(true, 1));
+        waypoints.add(new Pose(45, -28, 0));
+        waypoints.add(new Pose(true, 1));
+        waypoints.add(new Pose(55, -28, 0));
+        waypoints.add(new Pose(true, 1));
+        waypoints.add(new Pose(55, -38, 0));
+        waypoints.add(new Pose(true, 1));
 //        waypoints.add(new Pose(0));
 //        waypoints.add(new Pose(-15, 0, 0));
 //        waypoints.add(new Pose(true, 2));
