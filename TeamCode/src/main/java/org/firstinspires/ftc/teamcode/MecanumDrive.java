@@ -36,9 +36,9 @@ class MecanumDrive {
             ROTATION_RATIO = DISTANCE_PER_TICK,
             AXIS_COMPONENT = 0.5,
             TRANSLATION_P = .02,
-            TRANSLATION_D = 0.01,
-            ROTATION_P = .013,
-            ROTATION_D = .0017,
+            TRANSLATION_D = 0.015,
+            ROTATION_P = .0025,
+            ROTATION_D = .002,
             ROTATION_SPEED = 0.5,
             MAX_TRANSLATION_ACCEL = 10,
             ACCEPTABLE_POSITION_ERROR = 0.5,
@@ -49,6 +49,8 @@ class MecanumDrive {
     boolean rotdone, transdone, done;
 
     private double translationVel = 0;
+
+    double overrideX, overrideY, overrideR;
 
     MecanumDrive(HardwareMap hardwareMap, Telemetry telemetry, Gamepad gamepad,
                  IMUWrangler imuWrangler, VuforiaWrangler vuforiaWrangler, boolean fake, boolean useEncoders) {
@@ -110,6 +112,9 @@ class MecanumDrive {
                 break;
             case AUTO_TRANSLATE_ROTATE:
                 driveAutoTranslateAndRotate();
+                break;
+            case OVERRIDE:
+                driveXYR(overrideX, overrideY, overrideR, true);
                 break;
             case E_STOP:
                 driveEStop();
@@ -181,6 +186,12 @@ class MecanumDrive {
         return r + roffset;
     }
 
+    void setOverride(double x, double y, double r) {
+        this.overrideX = x;
+        this.overrideY = y;
+        this.overrideR = r;
+    }
+
     // sets AUTO_TRANSLATE mode target x and y
     void setTarget(double x, double y) {
         this.targx = x;
@@ -232,7 +243,7 @@ class MecanumDrive {
     }
 
     // drives using x, y, and r powers in range of -1 to 1
-    private void driveXYR(double x, double y, double r) {
+    private void driveXYR(double x, double y, double r, boolean simple) {
 
         if (useEncoders)
             setMotorModes(DcMotor.RunMode.RUN_USING_ENCODER);
@@ -259,6 +270,16 @@ class MecanumDrive {
         telemetry.addData("blPower", blPower);
         telemetry.addData("brPower", brPower);
 
+        if (simple) {
+            if (scale < 1) {
+                frPower *= scale;
+                flPower *= scale;
+                blPower *= scale;
+                brPower *= scale;
+            }
+            return;
+        }
+
         if (scale < 1) {
             scale *= 0.5;
             frPower *= scale;
@@ -282,12 +303,12 @@ class MecanumDrive {
 
         double totalPower = Math.abs(frPower) + Math.abs(flPower) + Math.abs(blPower) + Math.abs(brPower);
 
-        double minimumPower = .15;
-        double minimumTotalPower = .30;
+        double minimumPower = .125;
+        double minimumTotalPower = .25;
 
         if (scale < 1 / TRANSLATION_POWER_DEADZONE && totalPower < minimumTotalPower) {//&& scale > 1 / minimumPower) {
-            if (transdone && !rotdone)
-                scale *= .5;
+            if (transdone)
+                scale *= .7;
             scale *= minimumPower;
             frPower *= scale;
             flPower *= scale;
@@ -336,19 +357,22 @@ class MecanumDrive {
             yvel = y - lasty;
         }
 
-        telemetry.addData("hasNewInfo", vuforiaWrangler.hasNewInfo());
-        telemetry.addData("isTargetStone", vuforiaWrangler.isTargetStone());
-        telemetry.addData("isTargetVisible", vuforiaWrangler.isTargetVisible());
+        telemetry.addData("vuforiaWrangler", vuforiaWrangler);
+        if (vuforiaWrangler != null) {
+            telemetry.addData("hasNewInfo", vuforiaWrangler.hasNewInfo());
+            telemetry.addData("isTargetStone", vuforiaWrangler.isTargetStone());
+            telemetry.addData("isTargetVisible", vuforiaWrangler.isTargetVisible());
 
-        // in real usage, it would be if the target is not a stone
-        if (vuforiaWrangler.hasNewInfo() && !vuforiaWrangler.isTargetStone() && vuforiaWrangler.isTargetVisible()) {
-            x = vuforiaWrangler.getX();
-            y = vuforiaWrangler.getY();
+            // in real usage, it would be if the target is not a stone
+            if (vuforiaWrangler.hasNewInfo() && !vuforiaWrangler.isTargetStone() && vuforiaWrangler.isTargetVisible()) {
+                x = vuforiaWrangler.getX();
+                y = vuforiaWrangler.getY();
 
-            proposeRotation(vuforiaWrangler.getHeading());
+                proposeRotation(vuforiaWrangler.getHeading());
 
-            xvel = x - lastx;
-            yvel = y - lasty;
+                xvel = x - lastx;
+                yvel = y - lasty;
+            }
         }
 
         if (fake)
@@ -433,13 +457,13 @@ class MecanumDrive {
         double y = -gamepad.left_stick_y;
         double r = -gamepad.right_stick_x;
 
-        driveXYR(x, y, r);
+        driveXYR(x, y, r, true);
     }
 
     // updates motor power suggestions for moving to a location
     private void driveAutoTranslate() {
         double[] driveInfo = getXYforAutoTranslate();
-        driveXYR(driveInfo[0], driveInfo[1], 0);
+        driveXYR(driveInfo[0], driveInfo[1], 0, false);
         if (transdone)
             done = true;
     }
@@ -447,7 +471,7 @@ class MecanumDrive {
     // updates motor suggestions for turning to a heading
     private void driveAutoRotate() {
         double rotateInfo = getRforAutoRotate();
-        driveXYR(0, 0, rotateInfo);
+        driveXYR(0, 0, rotateInfo, false);
         if (rotdone)
             done = true;
     }
@@ -455,7 +479,7 @@ class MecanumDrive {
     private void driveAutoTranslateAndRotate() {
         double[] driveInfo = getXYforAutoTranslate();
         double rotateInfo = getRforAutoRotate();
-        driveXYR(driveInfo[0], driveInfo[1], rotateInfo);
+        driveXYR(driveInfo[0], driveInfo[1], rotateInfo, false);
         if (rotdone && transdone)
             done = true;
     }
@@ -479,6 +503,6 @@ class MecanumDrive {
 
     // various driving states/modes the drivebase can be in
     enum Mode {
-        CONTROLLER, AUTO_TRANSLATE, AUTO_ROTATE, AUTO_TRANSLATE_ROTATE, E_STOP
+        CONTROLLER, AUTO_TRANSLATE, AUTO_ROTATE, AUTO_TRANSLATE_ROTATE, OVERRIDE, E_STOP
     }
 }
