@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import org.firstinspires.ftc.robotcontroller.external.samples.PushbotAutoDriveByEncoder_Linear;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 import java.util.ArrayList;
@@ -35,14 +36,20 @@ public class Navigator {
         waypoints.add(new Pose(true, 4));
         */
 
-        waypoints.add(new Pose(0));
-        waypoints.add(new Pose(true, 1));
-        waypoints.add(new Pose(45));
-        waypoints.add(new Pose(true, 1));
-        waypoints.add(new Pose(90));
-        waypoints.add(new Pose(true, 1));
-        waypoints.add(new Pose(360));
-        waypoints.add(new Pose(true, 1));
+        waypoints.add(new Pose(50, -35, 0));
+//        waypoints.add(new Pose(0));
+//        waypoints.add(new Pose(-15, 0, 0));
+//        waypoints.add(new Pose(true, 2));
+//        waypoints.add(new Pose(-10, 0, 0));
+//        waypoints.add(new Pose(true, 2));
+        //waypoints.add(new Pose(0));
+        //waypoints.add(new Pose(true, 1));
+        //waypoints.add(new Pose(45));
+        //waypoints.add(new Pose(true, 1));
+        //waypoints.add(new Pose(90));
+        //waypoints.add(new Pose(true, 1));
+        //waypoints.add(new Pose(360));
+        //waypoints.add(new Pose(true, 1));
         /*waypoints.add(new Pose(180));
         waypoints.add(new Pose(true, 1));
         waypoints.add(new Pose(270));
@@ -55,7 +62,12 @@ public class Navigator {
     void update() {
         Pose current = waypoints.get(index);
 
-        if ((mecanumDrive.isDone() && !current.pause) || (current.pause && elapsedTime.seconds() > current.time)) {
+        telemetry.addData("mode", mecanumDrive.getMode());
+        telemetry.addData("index", index);
+        telemetry.addData("motion", current.motion);
+
+        if ((current.motion != Motion.PAUSE && mecanumDrive.isDone())
+                || (current.motion == Motion.PAUSE && elapsedTime.seconds() > current.time)) {
             index++;
             if (index >= waypoints.size())
                 index = 0;
@@ -63,29 +75,29 @@ public class Navigator {
         }
 
         current = waypoints.get(index);
-        if (current.isTranslation)
-            runPosition(current);
-        else if (!current.pause)
-            runRotation(current);
-        //else
-        //    mecanumDrive.setMode(MecanumDrive.Mode.E_STOP);
 
+        switch (current.motion) {
+            case TRANSLATION:
+                runPosition(current);
+                break;
+            case ROTATION:
+                runRotation(current);
+                break;
+            case TRANSLATION_AND_ROTATION:
+                runPositionAndRotation(current);
+                break;
+            case PAUSE:
 
-        //telemetry.addData("error for rotation", mecanumDrive.getError());
-        //telemetry.addData("pause timer", elapsedTime.seconds());
-        //telemetry.addData("action", index);
-
+                break;
+        }
     }
 
     private void runPosition(Pose pose) {
-        if (vuforiaWrangler.isTargetVisible() && vuforiaWrangler.isTargetStone()) {
-            mecanumDrive.setMode(MecanumDrive.Mode.AUTO_TRANSLATE);
-            // irrelevant now that MecanumDrive interfaces with Vuforia
-            //mecanumDrive.resetPosition(vuforiaWrangler.getX(), vuforiaWrangler.getY());
-            mecanumDrive.setTarget(waypoints.get(0).x, waypoints.get(0).y);
-        } else {
+        mecanumDrive.setMode(MecanumDrive.Mode.AUTO_TRANSLATE);
+        if (vuforiaWrangler.isTargetVisible() && vuforiaWrangler.isTargetStone())
+            mecanumDrive.setTarget(pose.x, pose.y);
+        else
             mecanumDrive.setMode(MecanumDrive.Mode.E_STOP);
-        }
     }
 
     private void runRotation(Pose pose) {
@@ -93,24 +105,46 @@ public class Navigator {
         mecanumDrive.setTarget(pose.r);
     }
 
+
+
+    private void runPositionAndRotation(Pose pose) {
+        mecanumDrive.setMode(MecanumDrive.Mode.AUTO_TRANSLATE_ROTATE);
+
+        mecanumDrive.setTarget(pose.r);
+
+        double[] test = new double[] {1, 2, 3};
+
+        if (vuforiaWrangler.isTargetVisible() && !vuforiaWrangler.isTargetStone())
+            mecanumDrive.setTarget(pose.x, pose.y);
+        else
+            mecanumDrive.setMode(MecanumDrive.Mode.E_STOP);
+    }
+
     class Pose {
         public double x, y;
         public double r;
-        public boolean isTranslation;
-        public boolean pause;
         public double time;
+        public Motion motion;
         Pose(double x, double y) {
             this.x = x;
             this.y = y;
-            isTranslation = true;
+            motion = Motion.TRANSLATION;
         }
         Pose(double r) {
             this.r = r;
-            isTranslation = false;
+            motion = Motion.ROTATION;
+        }
+        Pose(double x, double y, double r) {
+            this.x = x;
+            this.y = y;
+            this.r = r;
+            motion = Motion.TRANSLATION_AND_ROTATION;
         }
         Pose(boolean pause, double time) {
-            this.pause = pause;
             this.time = time;
+            motion = Motion.PAUSE;
         }
     }
+
+    enum Motion {TRANSLATION, ROTATION, TRANSLATION_AND_ROTATION, PAUSE}
 }

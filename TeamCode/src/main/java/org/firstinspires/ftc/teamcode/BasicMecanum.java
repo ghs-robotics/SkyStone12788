@@ -55,6 +55,7 @@ public class BasicMecanum extends OpMode {
     public void start() {
         runtime.reset();
         imuWrangler.start();
+        vuforiaWrangler.flashlight(true);
     }
 
     @Override

@@ -1,6 +1,8 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.util.ElapsedTime;
+import com.vuforia.CameraDevice;
 
 import org.firstinspires.ftc.robotcore.external.ClassFactory;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
@@ -66,6 +68,10 @@ class VuforiaWrangler {
 
     private boolean targetStone = false;
     private boolean noNewInfo = false;
+
+    private ElapsedTime elapsedTime;
+    private int whoopsCount = 0;
+
     // if the target is a stone:
     // robot is -X away from target, -Y to the right of target, +Z above target
 
@@ -75,6 +81,8 @@ class VuforiaWrangler {
         CAMERA_FORWARD_DISPLACEMENT = infoPackage.CAMERA_FORWARD_DISPLACEMENT;
         CAMERA_VERTICAL_DISPLACEMENT = infoPackage.CAMERA_VERTICAL_DISPLACEMENT;
         CAMERA_LEFT_DISPLACEMENT = infoPackage.CAMERA_LEFT_DISPLACEMENT;
+
+        elapsedTime = new ElapsedTime();
 
         this.telemetry = telemetry;
         int cameraMonitorViewId = hardwareMap.appContext.getResources().getIdentifier("cameraMonitorViewId", "id", hardwareMap.appContext.getPackageName());
@@ -214,6 +222,10 @@ class VuforiaWrangler {
     void update() {
         // check all the trackable targets to see which one (if any) is visible.
         targetVisible = false;
+
+        telemetry.addData("vuforia last time", elapsedTime.seconds());
+        telemetry.addData("whoops count", whoopsCount);
+
         for (VuforiaTrackable trackable : allTrackables) {
             if (((VuforiaTrackableDefaultListener)trackable.getListener()).isVisible()) {
                 //telemetry.addData("Visible Target", trackable.getName());
@@ -227,8 +239,10 @@ class VuforiaWrangler {
                 if (robotLocationTransform != null) {
                     lastLocation = robotLocationTransform;
                     noNewInfo = false;
+                    elapsedTime.reset();
                 } else {
                     noNewInfo = true;
+                    whoopsCount++;
                 }
                 break;
             }
@@ -237,7 +251,7 @@ class VuforiaWrangler {
         // Provide feedback as to where the robot is located (if we know).
         if (targetVisible) {
             telemetrizeTranslation(getTranslation());
-            //telemetrizeOrientation(getOrientation());
+            telemetrizeOrientation(getOrientation());
         }
         else {
             telemetry.addData("Visible Target", "none");
@@ -298,7 +312,12 @@ class VuforiaWrangler {
         return !noNewInfo;
     }
 
+    void flashlight(boolean flashlight) {
+        CameraDevice.getInstance().setFlashTorchMode(flashlight);
+    }
+
     void close() {
+        CameraDevice.getInstance().setFlashTorchMode(false);
         targetsSkyStone.deactivate();
     }
 

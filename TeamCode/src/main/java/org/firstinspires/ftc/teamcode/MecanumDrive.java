@@ -44,7 +44,7 @@ class MecanumDrive {
 
     boolean fake, useEncoders;
 
-    boolean done;
+    boolean rotdone, transdone, done;
 
     private double translationVel = 0;
 
@@ -87,9 +87,14 @@ class MecanumDrive {
 
     // calculates powers according to drive mode and updates hardware
     void updateDrive() {
+        rotdone = false;
+        transdone = false;
         done = false;
         updateLocationRotationVelocity();
         resetLastTicks();
+
+        if (mode == null)
+            mode = Mode.E_STOP;
 
         switch (mode) {
             case CONTROLLER:
@@ -100,6 +105,9 @@ class MecanumDrive {
                 break;
             case AUTO_ROTATE:
                 driveAutoRotate();
+                break;
+            case AUTO_TRANSLATE_ROTATE:
+                driveAutoTranslateAndRotate();
                 break;
             case E_STOP:
                 driveEStop();
@@ -121,13 +129,21 @@ class MecanumDrive {
         this.mode = mode;
     }
 
-    double getError() {
+    Mode getMode() {
+        return mode;
+    }
+
+    double getTranslationError() {
+        /*
         if (mode == Mode.AUTO_TRANSLATE)
             return Math.sqrt((targx - x) * (targx - x)
                            + (targy - y) * (targy - y));
         if (mode == Mode.AUTO_ROTATE)
             return Math.abs(targr - r) / 10;
         return 0;
+         */
+        return Math.sqrt((targx - x) * (targx - x)
+                + (targy - y) * (targy - y));
     }
 
     boolean isDone() {
@@ -141,20 +157,22 @@ class MecanumDrive {
     }
 
     // resets orientation (counterclockwise from +y)
-    void proposeRotation(double proposedr) {
-        double currentr = (this.r % 360 + 360) % 360;
-        if (currentr > 180)
-            currentr -= 360;
+    void proposeRotation(double proposedR) {
+        double currentAdjustedR = (getAdjustedRotation() % 360 + 360) % 360;
+        if (currentAdjustedR > 180)
+            currentAdjustedR -= 360;
 
-        proposedr = (proposedr % 360 + 360) % 360;
-        if (proposedr > 180)
-            proposedr -= 360;
+        proposedR = (proposedR % 360 + 360) % 360;
+        if (proposedR > 180)
+            proposedR -= 360;
 
-        this.roffset = proposedr - currentr;
+        double proposedCorrection = proposedR - currentAdjustedR;
 
-        this.roffset = (this.roffset % 360 + 360) % 360;
-        if (this.roffset > 180)
-            this.roffset -= 360;
+        this.roffset += proposedCorrection;
+
+//        this.roffset = (this.roffset % 360 + 360) % 360;
+//        if (this.roffset > 180)
+//            this.roffset -= 360;
     }
 
     private double getAdjustedRotation() {
@@ -235,12 +253,9 @@ class MecanumDrive {
         telemetry.addData("x", x);
         telemetry.addData("y", y);
         telemetry.addData("frPower", frPower);
-        telemetry.addData("frPowerb", y - x);
-        telemetry.addData("frPowerc", y - x + r);
         telemetry.addData("flPower", flPower);
         telemetry.addData("blPower", blPower);
         telemetry.addData("brPower", brPower);
-
 
         if (scale < 1) {
             frPower *= scale;
@@ -248,6 +263,22 @@ class MecanumDrive {
             blPower *= scale;
             brPower *= scale;
         }
+
+//        if (scale > 1 / .1)
+//            scale = 0;
+//
+////        scale *= .15;
+//
+//        scale = 10000;
+
+
+
+//        double powerSet = .15;
+//
+//        frPower = Range.clip(frPower * scale, -powerSet, powerSet);
+//        flPower = Range.clip(flPower * scale, -powerSet, powerSet);
+//        blPower = Range.clip(blPower * scale, -powerSet, powerSet);
+//        brPower = Range.clip(brPower * scale, -powerSet, powerSet);
     }
 
     // calculates the mecanum inverse translation transform of 4 wheel values
@@ -295,12 +326,14 @@ class MecanumDrive {
         telemetry.addData("isTargetVisible", vuforiaWrangler.isTargetVisible());
 
         // in real usage, it would be if the target is not a stone
-        if (vuforiaWrangler.hasNewInfo() && vuforiaWrangler.isTargetStone() && vuforiaWrangler.isTargetVisible()) {
+        if (vuforiaWrangler.hasNewInfo() && !vuforiaWrangler.isTargetStone() && vuforiaWrangler.isTargetVisible()) {
             x = vuforiaWrangler.getX();
             y = vuforiaWrangler.getY();
 
-            xvel = x - lastx;
-            yvel = y - lasty;
+            proposeRotation(vuforiaWrangler.getHeading());
+
+            //xvel = x - lastx;
+            //yvel = y - lasty;
         }
 
         if (fake)
@@ -308,6 +341,73 @@ class MecanumDrive {
 
         r = imuWrangler.getNiceHeading();
         rvel = imuWrangler.getHeadingVelocity();
+    }
+
+    private double[] getXYforAutoTranslate() {
+        double p = Math.sqrt(Math.pow(targx - x, 2) + Math.pow(targy - y, 2));
+        double d = Math.sqrt(Math.pow(xvel, 2) + Math.pow(yvel, 2));
+
+        p *= TRANSLATION_P;
+        d *= TRANSLATION_D;
+        double combined = p - d;
+
+        translationVel = combined;
+
+        double minSpeed = .15;
+        double translationDeadzone = 0.05;
+        double maxSpeed = .5;
+
+        if (getTranslationError() > 1 && Math.abs(translationVel) < minSpeed && Math.abs(translationVel) > translationDeadzone)
+            translationVel *= minSpeed / Math.abs(translationVel);
+
+        if (Math.abs(translationVel) <= translationDeadzone && getTranslationError() <= 1) {
+            transdone = true;
+            translationVel = 0;
+        }
+
+        if (translationVel < -1000 || translationVel > 1000)
+            translationVel = 0;
+
+        translationVel = Range.clip(translationVel, -maxSpeed, maxSpeed);
+
+        double mover = Math.atan2(targy - y, targx - x);
+        mover += Math.PI * 0.5;
+        mover -= getAdjustedRotation() / 180 * Math.PI;
+
+        telemetry.addData("P", p);
+        telemetry.addData("D", d);
+        telemetry.addData("translationVel", translationVel);
+        telemetry.addData("mover", mover);
+
+
+
+        return new double[] {Math.cos(mover) * translationVel, Math.sin(mover) * translationVel};
+    }
+
+    private double getRforAutoRotate() {
+        double p = targr - getAdjustedRotation();
+        double d = rvel;
+        p *= ROTATION_P;
+        d *= ROTATION_D;
+        double combined = p - d;
+
+        telemetry.addData("rotation", r);
+        telemetry.addData("adjusted rotation", getAdjustedRotation());
+        telemetry.addData("rotation velocity", rvel);
+        telemetry.addData("combined", combined);
+
+        double minSpeed = .11;
+
+        if (Math.abs(targr - getAdjustedRotation()) > 1 && Math.abs(combined) < minSpeed && Math.abs(combined) > .01)
+            combined *= minSpeed / Math.abs(combined);
+
+        combined = Range.clip(combined, -ROTATION_SPEED, ROTATION_SPEED);
+        if (Math.abs(targr - getAdjustedRotation()) <= 1 && Math.abs(rvel) < .5) {
+            combined = 0;
+            rotdone = true;
+        }
+        telemetry.addData("updated combined", combined);
+        return combined;
     }
 
     // controller drive: left stick translation, right stick rotation
@@ -321,63 +421,26 @@ class MecanumDrive {
 
     // updates motor power suggestions for moving to a location
     private void driveAutoTranslate() {
-        double deltaTime = this.deltaTime.seconds();
-
-        double p = Math.sqrt(Math.pow(targx - x, 2) + Math.pow(targy - y, 2));
-        double d = Math.sqrt(Math.pow(xvel, 2) + Math.pow(yvel, 2));
-
-        p *= TRANSLATION_P;
-        d *= TRANSLATION_D;
-        double combined = p - d;
-
-        /*if (Math.abs(combined - translationVel) < deltaTime * MAX_TRANSLATION_ACCEL)
-            translationVel = combined;
-        else if (combined - translationVel > 0)
-            translationVel += deltaTime * MAX_TRANSLATION_ACCEL;
-        else if (combined - translationVel < 0)
-            translationVel -= deltaTime * MAX_TRANSLATION_ACCEL;*/
-
-        translationVel = combined;
-
-        if (translationVel < -1000 || translationVel > 1000)
-            translationVel = 0;
-        if (translationVel > 1)
-            translationVel = 1;
-        if (translationVel < -1)
-            translationVel = -1;
-
-        double mover = Math.atan2(targy - y, targx - x);
-        mover += Math.PI * 0.5;
-        mover -= this.r;
-
-        telemetry.addData("P", p);
-        telemetry.addData("D", d);
-        telemetry.addData("translationVel", translationVel);
-        telemetry.addData("mover", mover);
-
-        driveXYR(Math.cos(mover) * translationVel, Math.sin(mover) * translationVel, 0);
+        double[] driveInfo = getXYforAutoTranslate();
+        driveXYR(driveInfo[0], driveInfo[1], 0);
+        if (transdone)
+            done = true;
     }
 
     // updates motor suggestions for turning to a heading
     private void driveAutoRotate() {
-        double p = targr - r;
-        double d = rvel;
-        p *= ROTATION_P;
-        d *= ROTATION_D;
-        double combined = p - d;
-
-        telemetry.addData("rotation", r);
-        telemetry.addData("rotation velocity", rvel);
-        telemetry.addData("combined", combined);
-        if (Math.abs(targr - r) > 1 && Math.abs(combined) < .11 && Math.abs(combined) > .01)
-            combined *= .11 / Math.abs(combined);
-        combined = Range.clip(combined, -ROTATION_SPEED, ROTATION_SPEED);
-        if (Math.abs(targr - r) <= 1 && Math.abs(rvel) < .5) {
-            combined = 0;
+        double rotateInfo = getRforAutoRotate();
+        driveXYR(0, 0, rotateInfo);
+        if (rotdone)
             done = true;
-        }
-        telemetry.addData("updated combined", combined);
-        driveXYR(0, 0, combined);
+    }
+
+    private void driveAutoTranslateAndRotate() {
+        double[] driveInfo = getXYforAutoTranslate();
+        double rotateInfo = getRforAutoRotate();
+        driveXYR(driveInfo[0], driveInfo[1], rotateInfo);
+        if (rotdone && transdone)
+            done = true;
     }
 
     // emergency stop--coasts with no power
@@ -399,6 +462,6 @@ class MecanumDrive {
 
     // various driving states/modes the drivebase can be in
     enum Mode {
-        CONTROLLER, AUTO_TRANSLATE, AUTO_ROTATE, E_STOP
+        CONTROLLER, AUTO_TRANSLATE, AUTO_ROTATE, AUTO_TRANSLATE_ROTATE, E_STOP
     }
 }
