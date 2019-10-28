@@ -2,7 +2,6 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-import org.firstinspires.ftc.robotcontroller.external.samples.PushbotAutoDriveByEncoder_Linear;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 import java.util.ArrayList;
@@ -26,16 +25,6 @@ public class Navigator {
     }
 
     void init() {
-        /*
-        waypoints.add(new Pose(0));
-
-        //waypoints.add(new Pose(-15, 0));
-        //waypoints.add(new Pose(-15, 0));
-        waypoints.add(new Pose(true, 4));
-        waypoints.add(new Pose(90));
-        waypoints.add(new Pose(true, 4));
-        */
-
         waypoints.add(new Pose(45, -38, 0));
         waypoints.add(new Pose(true, 1));
         waypoints.add(new Pose(45, -28, 0));
@@ -44,26 +33,6 @@ public class Navigator {
         waypoints.add(new Pose(true, 1));
         waypoints.add(new Pose(55, -38, 0));
         waypoints.add(new Pose(true, 1));
-//        waypoints.add(new Pose(0));
-//        waypoints.add(new Pose(-15, 0, 0));
-//        waypoints.add(new Pose(true, 2));
-//        waypoints.add(new Pose(-10, 0, 0));
-//        waypoints.add(new Pose(true, 2));
-        //waypoints.add(new Pose(0));
-        //waypoints.add(new Pose(true, 1));
-        //waypoints.add(new Pose(45));
-        //waypoints.add(new Pose(true, 1));
-        //waypoints.add(new Pose(90));
-        //waypoints.add(new Pose(true, 1));
-        //waypoints.add(new Pose(360));
-        //waypoints.add(new Pose(true, 1));
-        /*waypoints.add(new Pose(180));
-        waypoints.add(new Pose(true, 1));
-        waypoints.add(new Pose(270));
-        waypoints.add(new Pose(true, 1));
-        waypoints.add(new Pose(360));
-        waypoints.add(new Pose(true, 2));*/
-
     }
 
     void update() {
@@ -72,6 +41,9 @@ public class Navigator {
         telemetry.addData("mode", mecanumDrive.getMode());
         telemetry.addData("index", index);
         telemetry.addData("motion", current.motion);
+
+        if (current.waitForStable && !mecanumDrive.isDone())
+            elapsedTime.reset();
 
         if ((current.motion != Motion.PAUSE && mecanumDrive.isDone())
                 || (current.motion == Motion.PAUSE && elapsedTime.seconds() > current.time)) {
@@ -132,6 +104,7 @@ public class Navigator {
         public double r;
         public double time;
         public Motion motion;
+        public boolean waitForStable = false;
         Pose(double x, double y) {
             this.x = x;
             this.y = y;
@@ -147,8 +120,9 @@ public class Navigator {
             this.r = r;
             motion = Motion.TRANSLATION_AND_ROTATION;
         }
-        Pose(boolean pause, double time) {
+        Pose(boolean waitForStable, double time) {
             this.time = time;
+            this.waitForStable = waitForStable;
             motion = Motion.PAUSE;
         }
     }

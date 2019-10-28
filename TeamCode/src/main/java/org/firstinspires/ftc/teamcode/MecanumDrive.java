@@ -37,12 +37,21 @@ class MecanumDrive {
             AXIS_COMPONENT = 0.5,
             TRANSLATION_P = .02,
             TRANSLATION_D = 0.015,
-            ROTATION_P = .0025,
+            ROTATION_P = .005,
             ROTATION_D = .002,
             ROTATION_SPEED = 0.5,
             MAX_TRANSLATION_ACCEL = 10,
             ACCEPTABLE_POSITION_ERROR = 0.5,
-            TRANSLATION_POWER_DEADZONE = 0.01;
+            TRANSLATION_POWER_DEADZONE = 0.005,
+            TRANSLATION_VELOCITY_DEADZONE = 1.5,
+            ACCEPTABLE_ROTATION_ERROR = 1,
+            ROTATION_POWER_DEADZONE = .005,
+            ROTATION_VELOCITY_DEADZONE = 40,
+            MINIMUM_TRANSLATION_POWER = .10,
+            MINIMUM_ROTATION_POWER = .10,
+            MAX_TRANSLATION_POWER = .5,
+            MAX_ROTATION_POWER = .5,
+            MAX_TOTAL_POWER = .5;
 
     boolean fake, useEncoders;
 
@@ -81,10 +90,10 @@ class MecanumDrive {
         flDrive.setDirection(DcMotor.Direction.REVERSE);
         blDrive.setDirection(DcMotor.Direction.REVERSE);
 
-        frDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        flDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        blDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        brDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        frDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        flDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        blDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        brDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         resetLastTicks();
     }
@@ -141,14 +150,6 @@ class MecanumDrive {
     }
 
     double getTranslationError() {
-        /*
-        if (mode == Mode.AUTO_TRANSLATE)
-            return Math.sqrt((targx - x) * (targx - x)
-                           + (targy - y) * (targy - y));
-        if (mode == Mode.AUTO_ROTATE)
-            return Math.abs(targr - r) / 10;
-        return 0;
-         */
         return Math.sqrt((targx - x) * (targx - x)
                 + (targy - y) * (targy - y));
     }
@@ -176,10 +177,6 @@ class MecanumDrive {
         double proposedCorrection = proposedR - currentAdjustedR;
 
         this.roffset += proposedCorrection;
-
-//        this.roffset = (this.roffset % 360 + 360) % 360;
-//        if (this.roffset > 180)
-//            this.roffset -= 360;
     }
 
     private double getAdjustedRotation() {
@@ -242,8 +239,31 @@ class MecanumDrive {
         brLastTicks = brDrive.getCurrentPosition();
     }
 
+    private double adjust(double value, double deadzone, double minimum, double clip, boolean bump) {
+        double magnitude = Math.abs(value);
+        if (magnitude < deadzone)
+            return 0;
+        if (magnitude < minimum && bump)
+            value *= minimum / magnitude;
+        value = Range.clip(value, -clip, clip);
+        return value;
+    }
+
     // drives using x, y, and r powers in range of -1 to 1
     private void driveXYR(double x, double y, double r, boolean simple) {
+
+        telemetry.addData("x", x);
+        telemetry.addData("y", y);
+
+        if (!simple) {
+
+            x = adjust(x, TRANSLATION_POWER_DEADZONE, MINIMUM_TRANSLATION_POWER, MAX_TRANSLATION_POWER,
+                    Math.abs(r) < MINIMUM_ROTATION_POWER && Math.abs(y) < MINIMUM_TRANSLATION_POWER);
+            y = adjust(y, TRANSLATION_POWER_DEADZONE, MINIMUM_TRANSLATION_POWER, MAX_TRANSLATION_POWER,
+                    Math.abs(r) < MINIMUM_ROTATION_POWER && Math.abs(x) < MINIMUM_TRANSLATION_POWER);
+            r = adjust(r, ROTATION_POWER_DEADZONE, MINIMUM_ROTATION_POWER, MAX_ROTATION_POWER,
+                    Math.abs(x) < MINIMUM_TRANSLATION_POWER && Math.abs(y) < MINIMUM_TRANSLATION_POWER);
+        }
 
         if (useEncoders)
             setMotorModes(DcMotor.RunMode.RUN_USING_ENCODER);
@@ -256,60 +276,19 @@ class MecanumDrive {
         blPower = y - x - r;
         brPower = y + x + r;
 
-        double scale = Math.max(Math.max(Math.abs(frPower), Math.abs(flPower)),
-                Math.max(Math.abs(blPower), Math.abs(brPower)));
+        double highestPower = Math.max(Math.max(Math.abs(frPower), Math.abs(flPower)),
+                                       Math.max(Math.abs(blPower), Math.abs(brPower)));
 
-        scale = 1 / scale;
-
+        double scale = MAX_TOTAL_POWER / highestPower;
 
         telemetry.addData("scale", scale);
-        telemetry.addData("x", x);
-        telemetry.addData("y", y);
+
         telemetry.addData("frPower", frPower);
         telemetry.addData("flPower", flPower);
         telemetry.addData("blPower", blPower);
         telemetry.addData("brPower", brPower);
 
-        if (simple) {
-            if (scale < 1) {
-                frPower *= scale;
-                flPower *= scale;
-                blPower *= scale;
-                brPower *= scale;
-            }
-            return;
-        }
-
         if (scale < 1) {
-            scale *= 0.5;
-            frPower *= scale;
-            flPower *= scale;
-            blPower *= scale;
-            brPower *= scale;
-        }
-
-//        double totalPower = Math.abs(frPower) + Math.abs(flPower) + Math.abs(blPower) + Math.abs(brPower);
-//
-//        double minimumPower = .12;
-//        double minimumTotalPower = .24;
-//
-//        if (scale < 1 / TRANSLATION_POWER_DEADZONE && totalPower < minimumTotalPower) {//&& scale > 1 / minimumPower) {
-//            scale *= minimumPower;
-//            frPower *= scale;
-//            flPower *= scale;
-//            blPower *= scale;
-//            brPower *= scale;
-//        }
-
-        double totalPower = Math.abs(frPower) + Math.abs(flPower) + Math.abs(blPower) + Math.abs(brPower);
-
-        double minimumPower = .125;
-        double minimumTotalPower = .25;
-
-        if (scale < 1 / TRANSLATION_POWER_DEADZONE && totalPower < minimumTotalPower) {//&& scale > 1 / minimumPower) {
-            if (transdone)
-                scale *= .7;
-            scale *= minimumPower;
             frPower *= scale;
             flPower *= scale;
             blPower *= scale;
@@ -396,12 +375,7 @@ class MecanumDrive {
 
         double maxSpeed = .5;
 
-//        if (getTranslationError() > ACCEPTABLE_POSITION_ERROR
-//                && Math.abs(translationVel) < minSpeed
-//                && Math.abs(translationVel) > TRANSLATION_POWER_DEADZONE)
-//            translationVel *= minSpeed / Math.abs(translationVel);
-
-        if (Math.abs(translationVel) <= TRANSLATION_POWER_DEADZONE
+        if (Math.abs(translationVel) <= TRANSLATION_VELOCITY_DEADZONE
                 && getTranslationError() <= ACCEPTABLE_POSITION_ERROR) {
             transdone = true;
             translationVel = 0;
@@ -437,13 +411,9 @@ class MecanumDrive {
         telemetry.addData("rotation velocity", rvel);
         telemetry.addData("combined", combined);
 
-//        double minSpeed = .11;
-
-//        if (Math.abs(targr - getAdjustedRotation()) > 1 && Math.abs(combined) < minSpeed && Math.abs(combined) > .01)
-//            combined *= minSpeed / Math.abs(combined);
-
         combined = Range.clip(combined, -ROTATION_SPEED, ROTATION_SPEED);
-        if (Math.abs(targr - getAdjustedRotation()) <= 1 && Math.abs(rvel) < .5) {
+        if (Math.abs(rvel) < ROTATION_VELOCITY_DEADZONE
+                && Math.abs(targr - getAdjustedRotation()) <= ACCEPTABLE_ROTATION_ERROR) {
             combined = 0;
             rotdone = true;
         }
@@ -480,6 +450,9 @@ class MecanumDrive {
         double[] driveInfo = getXYforAutoTranslate();
         double rotateInfo = getRforAutoRotate();
         driveXYR(driveInfo[0], driveInfo[1], rotateInfo, false);
+        telemetry.addData("rotdone", rotdone);
+        telemetry.addData("transdone", transdone);
+        telemetry.addData("done", done);
         if (rotdone && transdone)
             done = true;
     }
