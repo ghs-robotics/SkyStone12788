@@ -14,7 +14,7 @@ public class ServoTest extends OpMode {
 //    private boolean state = true;
     private boolean aWasPressed = false;
     private boolean bWasPressed = false;
-    private double currentPosition = 0;
+    private double currentPosition = 0.5;
 
 
     @Override
@@ -22,31 +22,33 @@ public class ServoTest extends OpMode {
         servo = (Servo)hardwareMap.get("testServo");
     }
 
+    // Grabber positions, determined by empirical testing:
+    // Open:   0.05
+    // Closed: 0.50
     @Override
     public void loop() {
+        telemetry.addData("Servo Position", currentPosition);
+
         if (gamepad1.a && !aWasPressed) {
-            currentPosition += 0.05;
+            currentPosition += 0.01;
 
             if (currentPosition >= 1.0)
                 currentPosition = 1.0;
-
-            servo.setPosition(currentPosition);
-            aWasPressed = true;
-        } else if (gamepad1.a) {
-            aWasPressed = false;
         }
 
         if (gamepad1.b && !bWasPressed) {
-            currentPosition -= 0.05;
+            currentPosition -= 0.01;
 
             if (currentPosition <= 0.0)
                 currentPosition = 0.0;
-
-            servo.setPosition(currentPosition);
-            bWasPressed = true;
-        } else if (gamepad1.b) {
-            bWasPressed = false;
         }
+
+
+        bWasPressed = gamepad1.b;
+        aWasPressed = gamepad1.a;
+
+        servo.setPosition(currentPosition);
+
 
 //        if (timer == null) {
 //            servo.setPosition(0);
