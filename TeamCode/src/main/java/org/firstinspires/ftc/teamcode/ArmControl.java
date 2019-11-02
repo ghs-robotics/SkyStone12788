@@ -23,7 +23,6 @@ public class ArmControl {
 
     private boolean makeHardwareCalls;
     private double targetDegrees;
-    private int targetTicks;
 
     public ArmControl(HardwareMap hardwareMap, Telemetry telemetry, Gamepad gamepad, boolean makeHardwareCalls) {
         this.hardwareMap = hardwareMap;
