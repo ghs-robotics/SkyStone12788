@@ -8,7 +8,7 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 public class ArmControl {
     private final String MOTOR_NAME = "lowerArm";
-    // This is the number of encoder ticks in a full rotation, passed into setTargerPosition.
+    // This is the number of encoder ticks in a full rotation, passed into setTargetPosition.
     private final double FULL_ROTATION = 972; //3892
     // We only want to ever rotate to HALF_ROTATION, or we'll collide with the floor.
     private final double HALF_ROTATION = FULL_ROTATION / 2;
