@@ -126,8 +126,6 @@ class MecanumDrive {
                 driveXYR(overrideX, overrideY, overrideR, true);
                 break;
             case E_STOP:
-                driveEStop();
-                break;
             default:
                 driveEStop();
                 break;
