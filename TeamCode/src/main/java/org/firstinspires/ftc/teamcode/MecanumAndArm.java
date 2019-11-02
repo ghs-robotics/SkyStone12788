@@ -59,7 +59,7 @@ public class MecanumAndArm extends OpMode {
         runtime.reset();
         imuWrangler.start();
         vuforiaWrangler.flashlight(true);
-        armControl.setMode(ArmControl.Mode.GO);
+        armControl.mode = ArmControl.Mode.CONTROLLER;
     }
 
     @Override

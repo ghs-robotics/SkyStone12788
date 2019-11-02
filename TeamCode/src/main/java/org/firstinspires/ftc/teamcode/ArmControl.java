@@ -16,8 +16,11 @@ public class ArmControl {
     private final double POSITION_PER_SECOND = 0.14;
     // If the operator is left handed
     private final boolean USE_LEFT_STICK = false;
+    //the angle the arm starts at. note that this is with 0 being vertical and positive values towards the "front" (arm end) of the bot.
+    private final double START_ANGLE = 0.0;
 
-    public Mode mode = Mode.GO;
+    public Mode mode = Mode.CONTROLLER;
+
 
     private HardwareMap hardwareMap;
     private Telemetry telemetry;
@@ -58,8 +61,8 @@ public class ArmControl {
 
     public void update() {
         switch (mode) {
-            case GO:
-                armGo();
+            case CONTROLLER:
+                armControllerControl();
                 break;
             case E_STOP:
             default:
@@ -71,7 +74,7 @@ public class ArmControl {
             if (gamepad.b) {
                 mode = Mode.E_STOP;
             } else if (gamepad.a) {
-                mode = Mode.GO;
+                mode = Mode.CONTROLLER;
             }
         }
     }
@@ -83,7 +86,7 @@ public class ArmControl {
         targetPosition = position;
     }
 
-    private void armGo() {
+    private void armControllerControl() {
         if (gamepad != null) {
             if (!USE_LEFT_STICK) {
                 targetPosition += gamepad.right_stick_y * POSITION_PER_SECOND * deltaTime.seconds();
@@ -114,6 +117,6 @@ public class ArmControl {
     }
 
     enum Mode {
-        GO, E_STOP
+        CONTROLLER, E_STOP
     }
 }
