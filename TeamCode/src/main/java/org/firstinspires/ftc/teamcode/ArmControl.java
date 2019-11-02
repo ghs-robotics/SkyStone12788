@@ -8,12 +8,12 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 public class ArmControl {
     private final String MOTOR_NAME = "lowerArm";
-    // A constant *specific to our motor*, to pass to setTargerPosition. If we use a different
-    // motor, this must be updated.
-    private final double TICK_MAX = 973;
-    private final double DEGREES_PER_TICK = TICK_MAX / 360.0;
-    // Specific to TeleOp; this can be tweaked depending on how sensitive we want the arm to move.
-    private final int DEGREES_PER_SECOND = 50;
+    // This is the number of encoder ticks in a full rotation, passed into setTargerPosition.
+    private final double FULL_ROTATION = 972; //3892
+    // We only want to ever rotate to HALF_ROTATION, or we'll collide with the floor.
+    private final double HALF_ROTATION = FULL_ROTATION / 2;
+    // Specific to TeleOp; this is a value for how sensitive the gamepad is
+    private final double POSITION_PER_SECOND = 0.14;
     // If the operator is left handed
     private final boolean USE_LEFT_STICK = false;
 
@@ -26,8 +26,8 @@ public class ArmControl {
     private ElapsedTime deltaTime;
 
     private boolean makeHardwareCalls;
-    // TODO: determine suitable resting position.
-    private double targetDegrees = 180;
+    // A value from 0.0 to 1.0
+    private double targetPosition = 0.0;
 
     /**
      * If `gamepad` is null, don't use the gamepad; in this case, setPosition will be used to
@@ -80,23 +80,28 @@ public class ArmControl {
      * Pass in a number between 0.0 and 1.0
      */
     public void setPosition(double position) {
-        targetDegrees = position * 360;
+        targetPosition = position;
     }
 
     private void armGo() {
         if (gamepad != null) {
             if (!USE_LEFT_STICK) {
-                targetDegrees += gamepad.right_stick_y * DEGREES_PER_SECOND * deltaTime.seconds();
+                targetPosition += gamepad.right_stick_y * POSITION_PER_SECOND * deltaTime.seconds();
             } else {
-                targetDegrees += gamepad.left_stick_y  * DEGREES_PER_SECOND * deltaTime.seconds();
+                targetPosition += gamepad.left_stick_y  * POSITION_PER_SECOND * deltaTime.seconds();
             }
             deltaTime.reset();
         }
 
-        telemetry.addData("target degrees: (%.2f)", targetDegrees);
+        if (targetPosition > 1.0)
+            targetPosition = 1.0;
+        if (targetPosition < 0.0)
+            targetPosition = 0.0;
+
+        telemetry.addData("target position: (%.2f)", targetPosition);
 
         if(makeHardwareCalls) {
-            lowerMotor.setTargetPosition((int) Math.round(targetDegrees / DEGREES_PER_TICK));
+            lowerMotor.setTargetPosition((int) Math.round(targetPosition * HALF_ROTATION));
         }
     }
 
