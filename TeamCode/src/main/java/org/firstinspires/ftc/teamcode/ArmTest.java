@@ -34,7 +34,7 @@ public class ArmTest extends OpMode {
     @Override
     public void loop() {
         telemetry.addData("Arm Position", currentPosition);
-        telemetry.addData("is done", arm.isDone);
+        telemetry.addData("is done", arm.isDone());
 //        if (gamepad1.a && !aWasPressed) {
 //            currentPosition += 0.05;
 //
@@ -62,7 +62,33 @@ public class ArmTest extends OpMode {
 //            tempPosition = false;
 //        }
 
-        arm.setPosition(currentPosition);
+        if(gamepad2.a) {
+            arm.setTargetState(ArmControl.State.DUCK);
+        }
+        if(gamepad2.b) {
+            arm.setTargetState(ArmControl.State.RESET);
+        }
+        if(gamepad2.x) {
+            arm.setTargetState(ArmControl.State.INTAKE);
+        }
+        if(gamepad2.y) {
+            arm.setTargetState(ArmControl.State.PLACING);
+        }
+
+        if(gamepad2.dpad_right) {
+            arm.setTargetState(ArmControl.Placing.PLACING_0);
+        }
+        if(gamepad2.dpad_up) {
+            arm.setTargetState(ArmControl.Placing.PLACING_1);
+        }
+        if(gamepad2.dpad_left) {
+            arm.setTargetState(ArmControl.Placing.PLACING_2);
+        }
+        if(gamepad2.dpad_down) {
+            arm.setTargetState(ArmControl.Placing.PLACING_3);
+        }
+
+        //arm.setPosition(currentPosition);
 
 
 

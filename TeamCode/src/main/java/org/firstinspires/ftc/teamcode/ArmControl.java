@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.hardware.lynx.LynxUsbUtil;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Gamepad;
@@ -47,6 +48,7 @@ public class ArmControl {
     // A value from 0.0 to 1.0
     private double targetPosition = 0.0;
     private double currentPower;
+//    private boolean alreadyInPlacing = false;
 
     /**
      * If `gamepad` is null, don't use the gamepad; in this case, setPosition will be used to
@@ -117,6 +119,20 @@ public class ArmControl {
         }
     }
 
+    public void setTargetState(State newTarget, Placing newPlacingTarget) {
+        targetState = newTarget;
+        targetPlacingState = newPlacingTarget;
+    }
+
+    public void setTargetState(State newTarget) {
+        targetState = newTarget;
+    }
+
+    public void setTargetState(Placing newPlacingTarget) {
+        targetPlacingState = newPlacingTarget;
+    }
+
+
     /**
      * Pass in a number between 0.0 and 1.0
      */
@@ -136,16 +152,7 @@ public class ArmControl {
             deltaTime.reset();
         }
 
-        if (targetPosition > 1.0)
-            targetPosition = 1.0;
-        if (targetPosition < 0.0)
-            targetPosition = 0.0;
-
-        telemetry.addData("target position: (%.2f)", targetPosition);
-
-        if (makeHardwareCalls) {
-            lowerMotor.setTargetPosition((int) Math.round(targetPosition * HALF_ROTATION));
-        }
+        runMotors();
 
 //        isDone = !lowerMotor.isBusy();
     }
@@ -153,10 +160,78 @@ public class ArmControl {
     private void armControllerAutonomous() {
         //lowerMotor.setPower(FULL_POWER);
 
-        findTargetPosition(currentState, false, currentPlacingState);
+        updateStateMachine();
 
+        setTargetPosition();
 
+        runMotors();
+//        isDone = !lowerMotor.isBusy();
+    }
 
+    private void updateStateMachine() {
+        if(!isDone())
+            return;
+
+        switch (targetState) {
+            case DUCK:
+                moveTowardsDuck();
+                break;
+            case RESET:
+                moveTowardsReset();
+                break;
+            case INTAKE:
+                moveTowardsIntake();
+                break;
+            case PLACING:
+                moveTowardsPlacing();
+                break;
+            default:
+                mode = Mode.E_STOP;
+        }
+    }
+
+    private void moveTowardsDuck() {
+        if(!isDone())
+            return;
+
+        currentState =  State.DUCK;
+    }
+
+    private void moveTowardsReset() {
+        if(!isDone())
+            return;
+
+        if(currentState == State.DUCK || currentState == State.RESET) {
+            currentState = State.RESET;
+        } else {
+            currentState = State.DUCK;
+        }
+    }
+
+    private void moveTowardsIntake() {
+        if(!isDone())
+            return;
+
+        if(currentState == State.DUCK || currentState == State.INTAKE) {
+            currentState = State.INTAKE;
+        } else {
+            currentState = State.DUCK;
+        }
+    }
+
+    private void moveTowardsPlacing() {
+        if(!isDone())
+            return;
+
+        if(currentState == State.DUCK || currentState == State.PLACING) {
+            currentState = State.PLACING;
+            currentPlacingState = targetPlacingState;
+        } else {
+            currentState = State.DUCK;
+        }
+    }
+
+    private void runMotors() {
         if (targetPosition > 1.0)
             targetPosition = 1.0;
         if (targetPosition < 0.0)
@@ -167,12 +242,10 @@ public class ArmControl {
         if (makeHardwareCalls) {
             lowerMotor.setTargetPosition((int) Math.round(targetPosition * HALF_ROTATION));
         }
-
-//        isDone = !lowerMotor.isBusy();
     }
 
-    private void findTargetPosition(State state, boolean alreadyInPlacing, Placing placingState) {
-        switch (state) {
+    private void setTargetPosition() {
+        switch (currentState) {
             case RESET:
                 targetPosition = ArmConstants.ARM_RESET_POSITION;
                 currentPower = ArmConstants.POWER_TO_RESET;
@@ -186,30 +259,36 @@ public class ArmControl {
                 currentPower = ArmConstants.POWER_TO_INTAKE;
                 break;
             case PLACING:
-                handlePlacing(alreadyInPlacing, placingState);
+                handlePlacing(currentPlacingState);
                 break;
             default:
                 mode = Mode.E_STOP;
         }
     }
 
-    private void handlePlacing(boolean alreadyInPlacing, Placing placingState) {
+    private void handlePlacing(Placing placingState) {
         switch (placingState) {
             case PLACING_0:
                 targetPosition = ArmConstants.PLACING_0;
+                break;
             case PLACING_1:
                 targetPosition = ArmConstants.PLACING_1;
+                break;
             case PLACING_2:
                 targetPosition = ArmConstants.PLACING_2;
+                break;
             case PLACING_3:
                 targetPosition = ArmConstants.PLACING_3;
+                break;
         }
 
-        if(!alreadyInPlacing) {
-            currentPower = ArmConstants.POWER_TO_PLACING;
-        } else {
-            currentPower = ArmConstants.POWER_IN_PLACING;
-        }
+//        if(!alreadyInPlacing) {
+//            currentPower = ArmConstants.POWER_TO_PLACING;
+//        } else {
+//            currentPower = ArmConstants.POWER_IN_PLACING;
+//        }
+
+        currentPower = ArmConstants.POWER_TO_PLACING;
     }
 
 
