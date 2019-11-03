@@ -3,16 +3,16 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-@Autonomous(name="Arm Test")
-public class ArmTest extends OpMode {
+@Autonomous(name="Calibrator")
+public class Calibrator extends OpMode {
     private ArmControl arm;
     private boolean aWasPressed = false;
     private boolean bWasPressed = false;
     private double currentPosition = 0.0;
+    private double currentMainArmPosition = 0;
     private ElapsedTime et;
     private Gripper grip;
     private boolean tempPosition;
@@ -20,6 +20,8 @@ public class ArmTest extends OpMode {
     private Servo servo;
     private boolean leftBumperWasPressed = false;
     private boolean rightBumperWasPressed = false;
+    private boolean backWasPressed = false;
+    private boolean startWasPressed = false;
     //private double currentPosition = 0.5;
 
     @Override
@@ -45,28 +47,51 @@ public class ArmTest extends OpMode {
 
         armLogic();
 
-        arm.update();
+
 
 
         telemetry.addData("Servo Position", currentPosition);
+        telemetry.addData("Main Arm Position", currentMainArmPosition);
 
-        if (gamepad2.left_bumper && !leftBumperWasPressed) {
-            currentPosition += 0.05;
+        if (gamepad2.back && !backWasPressed) {
+            currentMainArmPosition += .05;
 
-            if (currentPosition >= 1.0)
-                currentPosition = 1.0;
+            if (currentMainArmPosition >= 1)
+                currentMainArmPosition = 1;
         }
 
-        if (gamepad2.right_bumper && !rightBumperWasPressed) {
-            currentPosition -= 0.05;
+        if (gamepad2.start && !startWasPressed) {
+            currentMainArmPosition -= .05;
 
-            if (currentPosition <= 0.0)
-                currentPosition = 0.0;
+            if (currentMainArmPosition <= 0)
+                currentMainArmPosition = 0;
         }
 
+        backWasPressed = gamepad2.back;
+        startWasPressed = gamepad2.start;
 
-        rightBumperWasPressed = gamepad2.right_bumper;
-        leftBumperWasPressed = gamepad2.left_bumper;
+//        if (gamepad2.left_bumper && !leftBumperWasPressed) {
+//            currentPosition += 0.05;
+//
+//            if (currentPosition >= 1.0)
+//                currentPosition = 1.0;
+//        }
+//
+//        if (gamepad2.right_bumper && !rightBumperWasPressed) {
+//            currentPosition -= 0.05;
+//
+//            if (currentPosition <= 0.0)
+//                currentPosition = 0.0;
+//        }
+
+
+//        rightBumperWasPressed = gamepad2.right_bumper;
+//        leftBumperWasPressed = gamepad2.left_bumper;
+
+        arm.mode = ArmControl.Mode.CONTROLLER;
+        arm.setPosition(currentMainArmPosition);
+
+        arm.update();
 
         servo.setPosition(currentPosition);
         grip.update();

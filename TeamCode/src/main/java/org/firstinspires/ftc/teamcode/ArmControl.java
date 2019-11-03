@@ -5,6 +5,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
@@ -25,7 +26,7 @@ public class ArmControl {
     private final double CAREFUL_POWER = 0.1;
 
     private final double CONTROL_P = 10.0,
-                        CONTROL_I = 0.05,
+                        CONTROL_I = 1,
                         CONTROL_D = 5.0;
 
 
@@ -33,7 +34,7 @@ public class ArmControl {
     public State currentState = State.RESET;
     public State targetState = State.RESET;
     public Placing currentPlacingState = Placing.PLACING_3;
-    public Placing targetPlacingState = Placing.PLACING_0;
+    public Placing targetPlacingState = Placing.PLACING_3;
 
 //    public boolean isDone;
 
@@ -44,11 +45,18 @@ public class ArmControl {
     private DcMotorEx lowerMotor;
     private ElapsedTime deltaTime;
 
+//    private Servo servo;
+    private boolean leftBumperWasPressed = false;
+    private boolean rightBumperWasPressed = false;
+    private double currentPosition = 0.0;
+
+
     private boolean makeHardwareCalls;
     // A value from 0.0 to 1.0
     private double targetPosition = 0.0;
     private double currentPower;
 //    private boolean alreadyInPlacing = false;
+    private String whoops = "none";
 
     /**
      * If `gamepad` is null, don't use the gamepad; in this case, setPosition will be used to
@@ -62,8 +70,42 @@ public class ArmControl {
 
         deltaTime = new ElapsedTime();
 
+//        servo = (Servo)hardwareMap.get("wristServo");
+
+
         if(makeHardwareCalls)
             setUpMotorHardware();
+    }
+
+    private void doContrologic() {
+        if(gamepad.a) {
+            setTargetState(ArmControl.State.DUCK);
+        }
+        if(gamepad.b) {
+            setTargetState(ArmControl.State.RESET);
+        }
+        if(gamepad.x) {
+            setTargetState(ArmControl.State.INTAKE);
+        }
+        if(gamepad.y) {
+            setTargetState(ArmControl.State.PLACING);
+        }
+
+        if(gamepad.dpad_right) {
+            setTargetState(ArmControl.Placing.PLACING_0);
+        }
+        if(gamepad.dpad_up) {
+            setTargetState(ArmControl.Placing.PLACING_1);
+        }
+        if(gamepad.dpad_left) {
+            setTargetState(ArmControl.Placing.PLACING_2);
+        }
+        if(gamepad.dpad_down) {
+            setTargetState(ArmControl.Placing.PLACING_3);
+        }
+
+        rightBumperWasPressed = gamepad.right_bumper;
+        leftBumperWasPressed = gamepad.left_bumper;
     }
 
     private void setUpMotorHardware() {
@@ -102,13 +144,13 @@ public class ArmControl {
                 break;
         }
 
-        if (gamepad != null) {
-            if (gamepad.b) {
-                mode = Mode.E_STOP;
-            } else if (gamepad.a) {
-                mode = Mode.CONTROLLER;
-            }
-        }
+//        if (gamepad != null) {
+//            if (gamepad.b) {
+//                mode = Mode.E_STOP;
+//            } else if (gamepad.a) {
+//                mode = Mode.CONTROLLER;
+//            }
+//        }
     }
 
     public boolean isDone() {
@@ -164,8 +206,69 @@ public class ArmControl {
 
         setTargetPosition();
 
+//        if (gamepad.left_bumper && !leftBumperWasPressed) {
+//            currentPosition += 0.05;
+//
+//            if (currentPosition >= 1.0)
+//                currentPosition = 1.0;
+//        }
+//
+//        if (gamepad.right_bumper && !rightBumperWasPressed) {
+//            currentPosition -= 0.05;
+//
+//            if (currentPosition <= 0.0)
+//                currentPosition = 0.0;
+//        }
+
+//        updateCoefficients();
+        telemetry.addData("Servo Position", currentPosition);
+
+//        servo.setPosition(currentPosition);
         runMotors();
 //        isDone = !lowerMotor.isBusy();
+    }
+
+    private void updateCoefficients() {
+        double f = 0;
+        switch (currentState) {
+            case DUCK:
+                f = ArmConstants.DUCK_F;
+                break;
+            case RESET:
+                f = ArmConstants.RESET_F;
+                break;
+            case INTAKE:
+                f = ArmConstants.INTAKE_F;
+                break;
+            case PLACING:
+
+                switch (currentPlacingState) {
+                    case PLACING_0:
+                        f = ArmConstants.PLACING_0_F;
+                        break;
+                    case PLACING_1:
+                        f = ArmConstants.PLACING_1_F;
+                        break;
+                    case PLACING_2:
+                        f = ArmConstants.PLACING_2_F;
+                        break;
+                    case PLACING_3:
+                        f = ArmConstants.PLACING_3_F;
+                        break;
+                    default:
+                        mode = Mode.E_STOP;
+//                        telemetry.addData("whoops A:", true);
+                        whoops = "A";
+                }
+
+                break;
+            default:
+                mode = Mode.E_STOP;
+//                telemetry.addData("whoops B:", true);
+                whoops = "B";
+        }
+        lowerMotor.setVelocityPIDFCoefficients(CONTROL_P, CONTROL_I, CONTROL_D, f);
+        telemetry.addData("whoops: ", whoops);
     }
 
     private void updateStateMachine() {
@@ -292,9 +395,6 @@ public class ArmControl {
 
         currentPower = ArmConstants.POWER_TO_PLACING;
     }
-
-
-
 
     private void armEStop() {
         lowerMotor.setPower(0);

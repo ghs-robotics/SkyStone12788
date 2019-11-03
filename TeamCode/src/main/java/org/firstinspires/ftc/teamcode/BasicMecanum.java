@@ -47,7 +47,7 @@ public class BasicMecanum extends OpMode {
         vuforiaWrangler = new VuforiaWrangler(hardwareMap, telemetry, PhoneInfoPackage.getPhoneInfoPackage());
         mecanumDrive = new MecanumDrive(hardwareMap, telemetry, gamepad1, imuWrangler, vuforiaWrangler,false, false);
         telemetry.addData("Status", "Initialized");
-        navigator = new Navigator(mecanumDrive, vuforiaWrangler, telemetry);
+        navigator = new Navigator(mecanumDrive, null, vuforiaWrangler, telemetry);
         navigator.init();
     }
 

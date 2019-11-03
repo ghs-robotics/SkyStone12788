@@ -17,7 +17,7 @@ class MecanumDrive {
     private Telemetry telemetry;
     private Gamepad gamepad;
     private IMUWrangler imuWrangler;
-    private VuforiaWrangler vuforiaWrangler;
+//    private VuforiaWrangler vuforiaWrangler;
     private DcMotor frDrive, flDrive, blDrive, brDrive;
     // looking out from red alliance side
     // X axis: left to right (centered)
@@ -67,7 +67,7 @@ class MecanumDrive {
         this.telemetry = telemetry;
         this.gamepad = gamepad;
         this.imuWrangler = imuWrangler;
-        this.vuforiaWrangler = vuforiaWrangler;
+//        this.vuforiaWrangler = vuforiaWrangler;
         this.fake = fake;
         this.useEncoders = useEncoders;
 
@@ -103,7 +103,7 @@ class MecanumDrive {
         rotdone = false;
         transdone = false;
         done = false;
-        updateLocationRotationVelocity();
+//        updateLocationRotationVelocity();
         resetLastTicks();
 
         if (mode == null)
@@ -313,51 +313,51 @@ class MecanumDrive {
     }
 
     // updates x, y, and r velocities, resets last variables
-    private void updateLocationRotationVelocity() {
-        lastx = x;
-        lasty = y;
-
-        if (useEncoders) {
-            double frTickDiff = frDrive.getCurrentPosition() - frLastTicks;
-            double flTickDiff = flDrive.getCurrentPosition() - flLastTicks;
-            double blTickDiff = blDrive.getCurrentPosition() - blLastTicks;
-            double brTickDiff = brDrive.getCurrentPosition() - brLastTicks;
-
-            double[] inverseXY = inverseXY(frTickDiff, flTickDiff, blTickDiff, brTickDiff);
-            x = inverseXY[0];
-            y = inverseXY[1];
-
-            x *= DISTANCE_PER_TICK;
-            y *= DISTANCE_PER_TICK;
-
-            xvel = x - lastx;
-            yvel = y - lasty;
-        }
-
-        telemetry.addData("vuforiaWrangler", vuforiaWrangler);
-        if (vuforiaWrangler != null) {
-            telemetry.addData("hasNewInfo", vuforiaWrangler.hasNewInfo());
-            telemetry.addData("isTargetStone", vuforiaWrangler.isTargetStone());
-            telemetry.addData("isTargetVisible", vuforiaWrangler.isTargetVisible());
-
-            // in real usage, it would be if the target is not a stone
-            if (vuforiaWrangler.hasNewInfo() && !vuforiaWrangler.isTargetStone() && vuforiaWrangler.isTargetVisible()) {
-                x = vuforiaWrangler.getX();
-                y = vuforiaWrangler.getY();
-
-                proposeRotation(vuforiaWrangler.getHeading());
-
-                xvel = x - lastx;
-                yvel = y - lasty;
-            }
-        }
-
-        if (fake)
-            return;
-
-        r = imuWrangler.getNiceHeading();
-        rvel = imuWrangler.getHeadingVelocity();
-    }
+//    private void updateLocationRotationVelocity() {
+//        lastx = x;
+//        lasty = y;
+//
+//        if (useEncoders) {
+//            double frTickDiff = frDrive.getCurrentPosition() - frLastTicks;
+//            double flTickDiff = flDrive.getCurrentPosition() - flLastTicks;
+//            double blTickDiff = blDrive.getCurrentPosition() - blLastTicks;
+//            double brTickDiff = brDrive.getCurrentPosition() - brLastTicks;
+//
+//            double[] inverseXY = inverseXY(frTickDiff, flTickDiff, blTickDiff, brTickDiff);
+//            x = inverseXY[0];
+//            y = inverseXY[1];
+//
+//            x *= DISTANCE_PER_TICK;
+//            y *= DISTANCE_PER_TICK;
+//
+//            xvel = x - lastx;
+//            yvel = y - lasty;
+//        }
+//
+//        telemetry.addData("vuforiaWrangler", vuforiaWrangler);
+//        if (vuforiaWrangler != null) {
+//            telemetry.addData("hasNewInfo", vuforiaWrangler.hasNewInfo());
+//            telemetry.addData("isTargetStone", vuforiaWrangler.isTargetStone());
+//            telemetry.addData("isTargetVisible", vuforiaWrangler.isTargetVisible());
+//
+//            // in real usage, it would be if the target is not a stone
+//            if (vuforiaWrangler.hasNewInfo() && !vuforiaWrangler.isTargetStone() && vuforiaWrangler.isTargetVisible()) {
+//                x = vuforiaWrangler.getX();
+//                y = vuforiaWrangler.getY();
+//
+//                proposeRotation(vuforiaWrangler.getHeading());
+//
+//                xvel = x - lastx;
+//                yvel = y - lasty;
+//            }
+//        }
+//
+//        if (fake)
+//            return;
+//
+//        r = imuWrangler.getNiceHeading();
+//        rvel = imuWrangler.getHeadingVelocity();
+//    }
 
     private double[] getXYforAutoTranslate() {
         double p = Math.sqrt(Math.pow(targx - x, 2) + Math.pow(targy - y, 2));
@@ -424,6 +424,11 @@ class MecanumDrive {
         double x =  gamepad.left_stick_x;
         double y = -gamepad.left_stick_y;
         double r = -gamepad.right_stick_x;
+
+//        frDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+//        flDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+//        blDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+//        brDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         driveXYR(x, y, r, true);
     }

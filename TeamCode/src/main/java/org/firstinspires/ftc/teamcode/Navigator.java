@@ -7,32 +7,36 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.crypto.ExemptionMechanism;
+
 public class Navigator {
     private MecanumDrive mecanumDrive;
+    private ArmControl arm;
     private VuforiaWrangler vuforiaWrangler;
     private List<Pose> waypoints;
     private int index;
     private Telemetry telemetry;
     private ElapsedTime elapsedTime;
 
-    public Navigator(MecanumDrive mecanumDrive, VuforiaWrangler vuforiaWrangler, Telemetry telemetry) {
+    public Navigator(MecanumDrive mecanumDrive, ArmControl arm, VuforiaWrangler vuforiaWrangler, Telemetry telemetry) {
         this.mecanumDrive = mecanumDrive;
         this.vuforiaWrangler = vuforiaWrangler;
         this.telemetry = telemetry;
+        this.arm = arm;
         waypoints = new ArrayList<>();
         index = 0;
         elapsedTime = new ElapsedTime();
     }
 
     void init() {
-        waypoints.add(new Pose(45, -38, 0));
-        waypoints.add(new Pose(true, 1));
-        waypoints.add(new Pose(45, -28, 0));
-        waypoints.add(new Pose(true, 1));
-        waypoints.add(new Pose(55, -28, 0));
-        waypoints.add(new Pose(true, 1));
-        waypoints.add(new Pose(55, -38, 0));
-        waypoints.add(new Pose(true, 1));
+        waypoints.add(new MecanumPose(45, -38, 0));
+        waypoints.add(new MecanumPose(true, 1));
+        waypoints.add(new MecanumPose(45, -28, 0));
+        waypoints.add(new MecanumPose(true, 1));
+        waypoints.add(new MecanumPose(55, -28, 0));
+        waypoints.add(new MecanumPose(true, 1));
+        waypoints.add(new MecanumPose(55, -38, 0));
+        waypoints.add(new MecanumPose(true, 1));
     }
 
     void update() {
@@ -40,38 +44,59 @@ public class Navigator {
 
         telemetry.addData("mode", mecanumDrive.getMode());
         telemetry.addData("index", index);
-        telemetry.addData("motion", current.motion);
 
-        if (current.waitForStable && !mecanumDrive.isDone())
-            elapsedTime.reset();
+        if(current instanceof MecanumPose) {
+            MecanumPose mecCurrent = (MecanumPose)current;
+            telemetry.addData("motion", mecCurrent.motion);
+            if (mecCurrent.waitForStable && !mecanumDrive.isDone())
+                elapsedTime.reset();
 
-        if ((current.motion != Motion.PAUSE && mecanumDrive.isDone())
-                || (current.motion == Motion.PAUSE && elapsedTime.seconds() > current.time)) {
-            index++;
-            if (index >= waypoints.size())
-                index = 0;
-            elapsedTime.reset();
+            if ((mecCurrent.motion != Motion.PAUSE && mecanumDrive.isDone())
+                    || (mecCurrent.motion == Motion.PAUSE && elapsedTime.seconds() > current.time)) {
+                index++;
+                if (index >= waypoints.size())
+                    index = 0;
+                elapsedTime.reset();
+            }
+        } else if(current instanceof ArmPose && arm != null) {
+            ArmPose armCurrent = (ArmPose)current;
+            telemetry.addData("arm Mode", armCurrent.mode);
+            telemetry.addData("arm state", armCurrent.state);
+            telemetry.addData("arm placing state", armCurrent.placingState);
+            if(!arm.isDone()) {
+                elapsedTime.reset();
+            }
+
+            if(arm.isDone() && elapsedTime.seconds() > armCurrent.time) {
+                index++;
+                if(index >= waypoints.size())
+                    index = 0;
+                elapsedTime.reset();
+            }
         }
-
         current = waypoints.get(index);
+        if(current instanceof MecanumPose) {
+            MecanumPose mecCurrent = (MecanumPose)current;
+            switch (mecCurrent.motion) {
+                case TRANSLATION:
+                    runPosition(mecCurrent);
+                    break;
+                case ROTATION:
+                    runRotation(mecCurrent);
+                    break;
+                case TRANSLATION_AND_ROTATION:
+                    runPositionAndRotation(mecCurrent);
+                    break;
+                case PAUSE:
 
-        switch (current.motion) {
-            case TRANSLATION:
-                runPosition(current);
-                break;
-            case ROTATION:
-                runRotation(current);
-                break;
-            case TRANSLATION_AND_ROTATION:
-                runPositionAndRotation(current);
-                break;
-            case PAUSE:
-
-                break;
+                    break;
+            }
+        } else if(current instanceof ArmPose && arm != null) {
+            setArmState((ArmPose)current);
         }
     }
 
-    private void runPosition(Pose pose) {
+    private void runPosition(MecanumPose pose) {
         mecanumDrive.setMode(MecanumDrive.Mode.AUTO_TRANSLATE);
         if (vuforiaWrangler.isTargetVisible() && vuforiaWrangler.isTargetStone())
             mecanumDrive.setTarget(pose.x, pose.y);
@@ -79,14 +104,14 @@ public class Navigator {
             mecanumDrive.setMode(MecanumDrive.Mode.E_STOP);
     }
 
-    private void runRotation(Pose pose) {
+    private void runRotation(MecanumPose pose) {
         mecanumDrive.setMode(MecanumDrive.Mode.AUTO_ROTATE);
         mecanumDrive.setTarget(pose.r);
     }
 
 
 
-    private void runPositionAndRotation(Pose pose) {
+    private void runPositionAndRotation(MecanumPose pose) {
         mecanumDrive.setMode(MecanumDrive.Mode.AUTO_TRANSLATE_ROTATE);
 
         mecanumDrive.setTarget(pose.r);
@@ -99,31 +124,61 @@ public class Navigator {
             mecanumDrive.setMode(MecanumDrive.Mode.E_STOP);
     }
 
+    private void setArmState(ArmPose pose) {
+        arm.targetState = pose.state;
+        if (pose.placingState != null){
+            arm.targetPlacingState = pose.placingState;
+        }
+        arm.mode = pose.mode;
+    }
+
     class Pose {
+        public double time;
+    }
+
+    class MecanumPose extends Pose{
         public double x, y;
         public double r;
-        public double time;
+//        public double time;
         public Motion motion;
         public boolean waitForStable = false;
-        Pose(double x, double y) {
+        MecanumPose(double x, double y) {
             this.x = x;
             this.y = y;
             motion = Motion.TRANSLATION;
         }
-        Pose(double r) {
+        MecanumPose(double r) {
             this.r = r;
             motion = Motion.ROTATION;
         }
-        Pose(double x, double y, double r) {
+        MecanumPose(double x, double y, double r) {
             this.x = x;
             this.y = y;
             this.r = r;
             motion = Motion.TRANSLATION_AND_ROTATION;
         }
-        Pose(boolean waitForStable, double time) {
+        MecanumPose(boolean waitForStable, double time) {
             this.time = time;
             this.waitForStable = waitForStable;
             motion = Motion.PAUSE;
+        }
+    }
+
+    class ArmPose extends Pose{
+        public ArmControl.Mode mode;
+        public ArmControl.State state;
+        public ArmControl.Placing placingState;
+//        public double time;
+
+        public ArmPose(ArmControl.Mode mode, ArmControl.State state, ArmControl.Placing placingState, double time) {
+            this.mode = mode;
+            this.state = state;
+            this.placingState = placingState;
+            this.time = time;
+        }
+
+        public ArmPose(ArmControl.Mode mode, ArmControl.State state, double time) {
+            this(mode, state, null, time);
         }
     }
 

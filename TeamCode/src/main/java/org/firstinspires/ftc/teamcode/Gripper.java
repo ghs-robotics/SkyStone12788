@@ -18,11 +18,11 @@ public class Gripper {
     }
 
     public void update() {
-        if (gamepad.left_bumper) {
+        if (gamepad.left_stick_button) {
             state = false;
         }
 
-        if (gamepad.right_bumper) {
+        if (gamepad.right_stick_button) {
             state = true;
         }
 

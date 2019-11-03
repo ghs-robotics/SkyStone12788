@@ -3,19 +3,18 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.util.ElapsedTime;
 
 @Autonomous(name="Servo Test")
 public class ServoTest extends OpMode {
     private Servo servo;
-    private boolean aWasPressed = false;
-    private boolean bWasPressed = false;
+    private boolean leftBumperWasPressed = false;
+    private boolean rightBumperWasPressed = false;
     private double currentPosition = 0.5;
 
 
     @Override
     public void init() {
-        servo = (Servo)hardwareMap.get("testServo");
+        servo = (Servo)hardwareMap.get("wristServo");
     }
 
     // Grabber positions, determined by empirical testing:
@@ -25,23 +24,23 @@ public class ServoTest extends OpMode {
     public void loop() {
         telemetry.addData("Servo Position", currentPosition);
 
-        if (gamepad1.a && !aWasPressed) {
-            currentPosition += 0.01;
+        if (gamepad1.left_bumper && !leftBumperWasPressed) {
+            currentPosition += 0.05;
 
             if (currentPosition >= 1.0)
                 currentPosition = 1.0;
         }
 
-        if (gamepad1.b && !bWasPressed) {
-            currentPosition -= 0.01;
+        if (gamepad1.right_bumper && !rightBumperWasPressed) {
+            currentPosition -= 0.05;
 
             if (currentPosition <= 0.0)
                 currentPosition = 0.0;
         }
 
 
-        bWasPressed = gamepad1.b;
-        aWasPressed = gamepad1.a;
+        rightBumperWasPressed = gamepad1.right_bumper;
+        leftBumperWasPressed = gamepad1.left_bumper;
 
         servo.setPosition(currentPosition);
     }
