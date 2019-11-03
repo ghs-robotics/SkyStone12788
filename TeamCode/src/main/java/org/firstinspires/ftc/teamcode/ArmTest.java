@@ -88,6 +88,7 @@ public class ArmTest extends OpMode {
             arm.setTargetState(ArmControl.Placing.PLACING_3);
         }
 
+
         //arm.setPosition(currentPosition);
 
 

@@ -24,14 +24,14 @@ public class ArmControl {
     private final double FULL_POWER = 1.0;
     private final double CAREFUL_POWER = 0.1;
 
-    private final double CONTROL_P = 5.0,
-                        CONTROL_I = 0.1,
+    private final double CONTROL_P = 10.0,
+                        CONTROL_I = 0.05,
                         CONTROL_D = 5.0;
 
 
-    public Mode mode = Mode.CONTROLLER;
+    public Mode mode = Mode.AUTO;
     public State currentState = State.RESET;
-    public State targetState;
+    public State targetState = State.RESET;
     public Placing currentPlacingState = Placing.PLACING_3;
     public Placing targetPlacingState = Placing.PLACING_0;
 
@@ -232,6 +232,8 @@ public class ArmControl {
     }
 
     private void runMotors() {
+        lowerMotor.setPower(currentPower);
+
         if (targetPosition > 1.0)
             targetPosition = 1.0;
         if (targetPosition < 0.0)
