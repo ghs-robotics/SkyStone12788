@@ -71,7 +71,8 @@ public class BasicMecanum extends OpMode {
             mecanumDrive.setTarget(0);
         } else
             mecanumDrive.setMode(MecanumDrive.Mode.CONTROLLER);*/
-        navigator.update();
+//        navigator.update();
+        mecanumDrive.setMode(MecanumDrive.Mode.CONTROLLER);
         mecanumDrive.updateDrive();
     }
 
