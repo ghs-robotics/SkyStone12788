@@ -17,6 +17,7 @@ public class IKArmControllerTester extends OpMode
     private DcMotor leftDrive = null;
     private DcMotor rightDrive = null;
     private ArmControllerIK arm;
+    private double targx = 8;
     private double targy = 20;
     private double lastTime = 0;
 
@@ -73,12 +74,20 @@ public class IKArmControllerTester extends OpMode
 //        if(gamepad1.b) go = false;
 
 //        arm.setPositionIK(4, 8 + 10 + Math.sin(runtime.seconds() * 2) * 10);
-        arm.setPositionIK(8, targy);
-        targy -= gamepad1.left_stick_y * 20 * (runtime.seconds() - lastTime);
+        arm.setPositionIK(targx, targy);
+        targy -= gamepad1.left_stick_y * 20 * (runtime.seconds());
         telemetry.addData("targy", targy);
-        lastTime = runtime.seconds();
+        targx -= gamepad1.left_stick_x * 20 * (runtime.seconds());
+        telemetry.addData("targx", targx);
 
-        telemetry.addData("Status", "Run Time: " + runtime.toString());
+
+//        lastTime = runtime.seconds();
+
+        arm.updateCooefficents();
+
+        runtime.reset();
+
+        telemetry.addData("Status", "loops per second: " + 1/runtime.seconds());
     }
 
     /*

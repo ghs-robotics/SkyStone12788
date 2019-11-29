@@ -39,6 +39,22 @@ public class ArmControllerIK {
     //TODO: remove
     private double targetX, targetY;
 
+    private final double
+            CONTROL_P_UPPER = 10,
+            CONTROL_I_UPPER = 0,
+            CONTROL_D_UPPER = 4,
+            CONTROL_P_LOWER = 10,
+            CONTROL_I_LOWER = 0,
+            CONTROL_D_LOWER = 4,
+            CONTROL_F_UPPER_MULT = -3,
+            CONTROL_F_LOWER_MULT = -3;
+
+    private double
+            fUpper = 0,
+            fLower = 0;
+
+    private double lowerAngle, upperAngle;
+
 //    private Mode mode;
 //    private State currentState;
 //    private State targetState;
@@ -83,11 +99,28 @@ public class ArmControllerIK {
         motorUpper.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         motorUpper.setDirection(DcMotor.Direction.REVERSE);
 
+        motorUpper.setVelocityPIDFCoefficients(CONTROL_P_UPPER, CONTROL_I_UPPER, CONTROL_D_UPPER, fUpper);
+        motorLower.setVelocityPIDFCoefficients(CONTROL_P_LOWER, CONTROL_I_LOWER, CONTROL_D_LOWER, fLower);
 
         //TODO: remove this when state machine implemented
-        motorLower.setPower(0.4);
-        motorUpper.setPower(0.7);
+        motorLower.setPower(1);
+        motorUpper.setPower(1);
     }
+
+    public void updateCooefficents() {
+        fUpper = Math.cos(upperAngle) * CONTROL_F_UPPER_MULT;
+        fLower = Math.cos(lowerAngle) * CONTROL_F_LOWER_MULT;
+
+        telemetry.addData("current lower angle", getLowerAngleRad());
+        telemetry.addData("current upper angle", getUpperAngleRad());
+
+        telemetry.addData("lower IK angle", lowerAngle);
+        telemetry.addData("upper IK angle", upperAngle);
+
+        motorUpper.setVelocityPIDFCoefficients(CONTROL_P_UPPER, CONTROL_I_UPPER, CONTROL_D_UPPER, fUpper);
+        motorLower.setVelocityPIDFCoefficients(CONTROL_P_LOWER, CONTROL_I_LOWER, CONTROL_D_LOWER, fLower);
+    }
+
 //
 //    public void update() {
 //        //TEMPORARY:
@@ -100,21 +133,38 @@ public class ArmControllerIK {
         try {
             PVector[] positions = doIKForDist(x, y, 0.5);
 
-            double lowerAngle = Math.atan2(positions[0].y, positions[0].x);
-            double upperAngle = Math.atan2(positions[1].y, positions[1].x);
-            if (upperAngle < 0)
-                upperAngle += 2 * Math.PI;
+            lowerAngle = Math.atan2(positions[0].y, positions[0].x);
+            upperAngle = Math.atan2(positions[1].y, positions[1].x);
 
-            telemetry.addData("lower IK angle", lowerAngle);
-            telemetry.addData("upper IK angle", upperAngle);
+            while (upperAngle < -Math.PI / 2)
+                upperAngle += Math.PI * 2;
 
-            setLowerTargetAngle(lowerAngle);
-            setUpperTargetAngle(upperAngle);
+            while (upperAngle > Math.PI * 3 / 2)
+                upperAngle -= Math.PI * 2;
+
+            if(checkCollision(lowerAngle, upperAngle)) {
+
+                setLowerTargetAngle(lowerAngle);
+                setUpperTargetAngle(upperAngle);
+            }
         } catch (IllegalArgumentException e) {
 
         }
     }
 
+    public boolean checkCollision(double lowerAngle, double upperAngle) {
+
+        double fky = Math.sin(lowerAngle) + Math.sin(upperAngle);
+        double jkx = Math.cos(lowerAngle) + Math.cos(upperAngle);
+
+//        if (lowerAngle )
+
+        if(fky < 0) {
+            return false;
+        }
+
+        return true;
+    }
 
     public void setLowerTargetAngle(double radians) {
         //radians *= -1;
@@ -185,7 +235,6 @@ public class ArmControllerIK {
 //        println(middle, end);
         return new PVector[] {middle, end};
     }
-
 
     double distance(double x, double y) {
         return Math.sqrt(x*x + y*y);
