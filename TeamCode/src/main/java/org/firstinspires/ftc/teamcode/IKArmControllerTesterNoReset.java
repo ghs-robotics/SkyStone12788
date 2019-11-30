@@ -1,16 +1,14 @@
 
 package org.firstinspires.ftc.teamcode;
 
-import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import com.qualcomm.robotcore.util.Range;
 
 
-@TeleOp(name="new arm control tester", group="Iterative Opmode")
-public class IKArmControllerTester extends OpMode
+@TeleOp(name="new arm control tester (no reset)", group="Iterative Opmode")
+public class IKArmControllerTesterNoReset extends OpMode
 {
     // Declare OpMode members.
     private ElapsedTime runtime = new ElapsedTime();
@@ -25,7 +23,7 @@ public class IKArmControllerTester extends OpMode
      */
     @Override
     public void init() {
-        arm = new ArmControllerIK(hardwareMap, telemetry, gamepad1, true, true);
+        arm = new ArmControllerIK(hardwareMap, telemetry, gamepad1, true, false);
     }
 
     /*

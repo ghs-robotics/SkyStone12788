@@ -4,12 +4,15 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 public class ArmControllerIK {
     private final String MOTOR_NAME_LOWER = "lowerMotor";
-    private final String MOTOR_NAME_UPPER= "upperMotor";
+    private final String MOTOR_NAME_UPPER = "upperMotor";
+    private final String SERVO_NAME_WRIST = "wristServo";
+    private final String SERVO_NAME_GRIPPER="gripperServo";
     // This is the number of encoder ticks in a full rotation, passed into setTargetPosition.
     private final double TICKS_PER_REVOLUTION_LOWER = 3892;
     private final double TICKS_PER_REVOLUTION_UPPER = 1425.2 * 2;
@@ -35,9 +38,10 @@ public class ArmControllerIK {
     private boolean makeHardwareCalls;
     public DcMotorEx motorLower;
     public DcMotorEx motorUpper;
+    private Servo wristServo;
+    private Servo gripServo;
 
-    //TODO: remove
-    private double targetX, targetY;
+    private double servoOffset;
 
     private final double
             CONTROL_P_UPPER = 10,
@@ -54,6 +58,8 @@ public class ArmControllerIK {
             fLower = 0;
 
     private double lowerAngle, upperAngle;
+    private boolean gripperClosed = false;
+    private boolean gripButtonWasPressed = false;
 
 //    private Mode mode;
 //    private State currentState;
@@ -64,7 +70,7 @@ public class ArmControllerIK {
      * If `gamepad` is null, don't use the gamepad; in this case, setPosition will be used to
      * set the position.
      */
-    public ArmControllerIK(HardwareMap hardwareMap, Telemetry telemetry, Gamepad gamepad, boolean makeHardwareCalls) {
+    public ArmControllerIK(HardwareMap hardwareMap, Telemetry telemetry, Gamepad gamepad, boolean makeHardwareCalls, boolean resetEncoders) {
         this.hardwareMap = hardwareMap;
         this.telemetry = telemetry;
         this.gamepad = gamepad;
@@ -76,11 +82,11 @@ public class ArmControllerIK {
 
 
         if(makeHardwareCalls)
-            setUpMotorHardware();
+            setUpMotorHardware(resetEncoders);
     }
 
 
-    private void setUpMotorHardware() {
+    private void setUpMotorHardware(boolean resetEncoders) {
         if(!makeHardwareCalls) {
             throw new IllegalStateException("setUpMotorHardware called, but makeHardwareCalls is false!");
         }
@@ -90,13 +96,26 @@ public class ArmControllerIK {
         motorUpper = (DcMotorEx)hardwareMap.get(DcMotor.class, MOTOR_NAME_UPPER);
         motorUpper.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        motorLower.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        motorLower.setTargetPosition(0);
-        motorLower.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        if(resetEncoders) {
+            motorLower.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            motorLower.setTargetPosition(0);
+            motorLower.setMode(DcMotor.RunMode.RUN_TO_POSITION);
 
-        motorUpper.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        motorUpper.setTargetPosition(0);
-        motorUpper.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            motorUpper.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            motorUpper.setTargetPosition(0);
+            motorUpper.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        } else {
+//            motorLower.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+//            motorLower.setTargetPosition(0);
+//            motorLower.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+//
+//            motorUpper.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+//            motorUpper.setTargetPosition(0);
+//            motorUpper.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+
+            //maybe something should happen here?
+        }
+
         motorUpper.setDirection(DcMotor.Direction.REVERSE);
 
         motorUpper.setVelocityPIDFCoefficients(CONTROL_P_UPPER, CONTROL_I_UPPER, CONTROL_D_UPPER, fUpper);
@@ -105,6 +124,11 @@ public class ArmControllerIK {
         //TODO: remove this when state machine implemented
         motorLower.setPower(1);
         motorUpper.setPower(1);
+
+
+
+        wristServo = hardwareMap.get(Servo.class, SERVO_NAME_WRIST);
+        gripServo = hardwareMap.get(Servo.class, SERVO_NAME_GRIPPER);
     }
 
     public void updateCooefficents() {
@@ -121,17 +145,59 @@ public class ArmControllerIK {
         motorLower.setVelocityPIDFCoefficients(CONTROL_P_LOWER, CONTROL_I_LOWER, CONTROL_D_LOWER, fLower);
     }
 
-//
-//    public void update() {
-//        //TEMPORARY:
-//
-//    }
+
+    public void update() {
+        updateCooefficents();
+
+        double servoAngle = (3 * Math.PI / 2) - getUpperAngleRad();
+
+//        servoAngle = Math.min(1.0, Math.max(((Math.toDegrees(servoAngle) / 280)) % 360, 0.0));
+
+        double servoAngleDegrees = Math.toDegrees(servoAngle);
+        double servoAngleServounits = servoAngleDegrees / 280;
+        servoAngleServounits += servoOffset;
+
+        while(servoAngle < 0.0) {
+            servoAngle += (360/280);
+        }
+        while(servoAngle > 1.0) {
+            servoAngle -= (360/280);
+        }
+
+        wristServo.setPosition(servoAngleServounits);
+
+        if(!gripperClosed) {
+            gripServo.setPosition(0);
+        } else {
+            gripServo.setPosition(.38);
+        }
+
+        if(gamepad.right_bumper && !gripButtonWasPressed) {
+            gripperClosed = !gripperClosed;
+        }
+
+        gripButtonWasPressed = gamepad.right_bumper;
+
+        //change offset
+
+        if(gamepad.dpad_left) {
+            servoOffset += .2 * deltaTime.seconds();
+        } else if(gamepad.dpad_right) {
+            servoOffset -= .2 * deltaTime.seconds();
+        }
+
+        deltaTime.reset();
+
+        telemetry.addData("servo angle", servoAngleServounits);
+        telemetry.addData("servo offset", servoOffset);
+    }
+
     public void setPositionIK(double x, double y) {
 
         x *= -1;
 
         try {
-            PVector[] positions = doIKForDist(x, y, 0.5);
+            PVector[] positions = doIKForDist(x, y, 0.1);
 
             lowerAngle = Math.atan2(positions[0].y, positions[0].x);
             upperAngle = Math.atan2(positions[1].y, positions[1].x);
@@ -159,9 +225,9 @@ public class ArmControllerIK {
 
 //        if (lowerAngle )
 
-        if(fky < 0) {
-            return false;
-        }
+//        if(fky < 0) {
+//            return false;
+//        }
 
         return true;
     }
