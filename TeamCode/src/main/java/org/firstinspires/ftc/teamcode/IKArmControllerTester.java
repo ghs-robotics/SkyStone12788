@@ -71,10 +71,13 @@ public class IKArmControllerTester extends OpMode
 //        if(gamepad1.b) go = false;
 
 //        arm.setPositionIK(4, 8 + 10 + Math.sin(runtime.seconds() * 2) * 10);
+
+        double armBoost = (gamepad1.left_trigger * 2) + 1;
+
         arm.setPositionIK(targx, targy);
-        targy -= gamepad1.left_stick_y * 20 * (runtime.seconds());
+        targy -= gamepad1.left_stick_y * 20 * armBoost * (runtime.seconds());
         telemetry.addData("targy", targy);
-        targx -= gamepad1.left_stick_x * 20 * (runtime.seconds());
+        targx -= gamepad1.left_stick_x * 20 * armBoost * (runtime.seconds());
         telemetry.addData("targx", targx);
 
 
