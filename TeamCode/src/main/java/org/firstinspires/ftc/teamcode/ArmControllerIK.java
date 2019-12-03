@@ -8,6 +8,8 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
+import sun.awt.motif.X11CNS11643;
+
 public class ArmControllerIK {
     private final String MOTOR_NAME_LOWER = "lowerMotor";
     private final String MOTOR_NAME_UPPER = "upperMotor";
@@ -41,7 +43,8 @@ public class ArmControllerIK {
     private Servo wristServo;
     private Servo gripServo;
 
-    private double servoOffset;
+    private double servoOffset = 0.37315;
+    private double servoOffsetReverse;
 
     private final double
             CONTROL_P_UPPER = 10,
@@ -58,6 +61,7 @@ public class ArmControllerIK {
             fLower = 0;
 
     private double lowerAngle, upperAngle;
+    private double targetX, targetY;
     private boolean gripperClosed = false;
     private boolean gripButtonWasPressed = false;
 
@@ -155,7 +159,8 @@ public class ArmControllerIK {
 
         double servoAngleDegrees = Math.toDegrees(servoAngle);
         double servoAngleServounits = servoAngleDegrees / 280;
-        servoAngleServounits += servoOffset;
+
+        servoAngleServounits += (targetX > 0) ? servoOffset : servoOffsetReverse;
 
         while(servoAngle < 0.0) {
             servoAngle += (360/280);
@@ -165,6 +170,21 @@ public class ArmControllerIK {
         }
 
         wristServo.setPosition(servoAngleServounits);
+
+
+        if(targetX > 0) {
+            if (gamepad.dpad_left) {
+                servoOffset += .2 * deltaTime.seconds();
+            } else if (gamepad.dpad_right) {
+                servoOffset -= .2 * deltaTime.seconds();
+            }
+        } else {
+            if (gamepad.dpad_left) {
+                servoOffsetReverse += .2 * deltaTime.seconds();
+            } else if (gamepad.dpad_right) {
+                servoOffsetReverse -= .2 * deltaTime.seconds();
+            }
+        }
 
         if(!gripperClosed) {
             gripServo.setPosition(0);
@@ -177,22 +197,17 @@ public class ArmControllerIK {
         }
 
         gripButtonWasPressed = gamepad.right_bumper;
-
-        //change offset
-
-        if(gamepad.dpad_left) {
-            servoOffset += .2 * deltaTime.seconds();
-        } else if(gamepad.dpad_right) {
-            servoOffset -= .2 * deltaTime.seconds();
-        }
-
         deltaTime.reset();
 
         telemetry.addData("servo angle", servoAngleServounits);
         telemetry.addData("servo offset", servoOffset);
+        telemetry.addData("servo reverse offset", servoOffsetReverse);
     }
 
     public void setPositionIK(double x, double y) {
+
+        targetX = x;
+        targetY = y;
 
         x *= -1;
 
