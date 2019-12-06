@@ -9,6 +9,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 public class ArmControllerIK {
+    //hardware config data
     private final String MOTOR_NAME_LOWER = "lowerMotor";
     private final String MOTOR_NAME_UPPER = "upperMotor";
     private final String SERVO_NAME_WRIST = "wristServo";
@@ -16,17 +17,11 @@ public class ArmControllerIK {
     // This is the number of encoder ticks in a full rotation, passed into setTargetPosition.
     private final double TICKS_PER_REVOLUTION_LOWER = 3892;
     private final double TICKS_PER_REVOLUTION_UPPER = 1425.2 * 2;
-    // We only want to ever rotate to HALF_ROTATION, or we'll collide with the floor.
-//    private final double HALF_ROTATION = TICKS_PER_REVOLUTION_LOWER / 2;
-
-    //note: 0 is horizontal pointing in the direction of the non arm side of the bot.
-//
-//    private final double STARTING_POS_RAD_LOWER = 0.34906585,
-//                        STARTING_POS_RAD_UPPER = -1.134464014;
-
+    // the position the arm will think it is in on start.
     private final double STARTING_POS_RAD_LOWER = 0,
                         STARTING_POS_RAD_UPPER = Math.PI;
 
+    // the lengths of the two sections of arm.
     private final double LOWER_ARM_LENGTH = 21.075, UPPER_ARM_LENGTH = 17.625;
 
 
@@ -41,32 +36,35 @@ public class ArmControllerIK {
     private Servo wristServo;
     private Servo gripServo;
 
+    // an offset to make the gripper stay level. todo: fix number & add reverse number
     private double servoOffset = 0.37315;
     private double servoOffsetReverse;
 
+    // PIDf coefficients for each arm section
     private final double
             CONTROL_P_UPPER = 10,
-            CONTROL_I_UPPER = 0,
+            CONTROL_I_UPPER = .1,
             CONTROL_D_UPPER = 4,
             CONTROL_P_LOWER = 10,
-            CONTROL_I_LOWER = 0,
+            CONTROL_I_LOWER = .1,
             CONTROL_D_LOWER = 4,
             CONTROL_F_UPPER_MULT = -3,
             CONTROL_F_LOWER_MULT = -3;
 
+    // vars used to calculate feed-forward power values
     private double
             fUpper = 0,
             fLower = 0;
 
+    // the current angle each section of the arm is targeting, radians.
+    // 0 is horizontal towards the foundation gripper end of the bot.
     private double lowerAngle, upperAngle;
+    // x,y coords of target point, inches. X+ is towards the arm-end of the bot.
     private double targetX, targetY;
+    //used to toggle gripper position
     private boolean gripperClosed = false;
+    //for input handling.
     private boolean gripButtonWasPressed = false;
-
-//    private Mode mode;
-//    private State currentState;
-//    private State targetState;
-//    private Placing placingState;
 
     /**
      * If `gamepad` is null, don't use the gamepad; in this case, setPosition will be used to
@@ -151,13 +149,12 @@ public class ArmControllerIK {
     public void update() {
         updateCooefficents();
 
+
+        // keeping the gripper assembly level
         double servoAngle = (3 * Math.PI / 2) - getUpperAngleRad();
-
 //        servoAngle = Math.min(1.0, Math.max(((Math.toDegrees(servoAngle) / 280)) % 360, 0.0));
-
         double servoAngleDegrees = Math.toDegrees(servoAngle);
         double servoAngleServounits = servoAngleDegrees / 280;
-
         servoAngleServounits += (targetX > 0) ? servoOffset : servoOffsetReverse;
 
         while(servoAngle < 0.0) {
@@ -167,34 +164,39 @@ public class ArmControllerIK {
             servoAngle -= (360/280);
         }
 
-        wristServo.setPosition(servoAngleServounits);
+        if(makeHardwareCalls) wristServo.setPosition(servoAngleServounits);
 
-
-        if(targetX > 0) {
-            if (gamepad.dpad_left) {
-                servoOffset += .2 * deltaTime.seconds();
-            } else if (gamepad.dpad_right) {
-                servoOffset -= .2 * deltaTime.seconds();
+        if(gamepad != null) {
+            // changing the gripper angle using the D-pad
+            if (targetX > 0) {
+                if (gamepad.dpad_left) {
+                    servoOffset += .2 * deltaTime.seconds();
+                } else if (gamepad.dpad_right) {
+                    servoOffset -= .2 * deltaTime.seconds();
+                }
+            } else {
+                if (gamepad.dpad_left) {
+                    servoOffsetReverse -= .2 * deltaTime.seconds();
+                } else if (gamepad.dpad_right) {
+                    servoOffsetReverse += .2 * deltaTime.seconds();
+                }
             }
-        } else {
-            if (gamepad.dpad_left) {
-                servoOffsetReverse -= .2 * deltaTime.seconds();
-            } else if (gamepad.dpad_right) {
-                servoOffsetReverse += .2 * deltaTime.seconds();
+
+            //gripper control
+            if (makeHardwareCalls) {
+                if (!gripperClosed) {
+                    gripServo.setPosition(.2);
+                } else {
+                    gripServo.setPosition(.5);
+                }
             }
+            if (gamepad.right_bumper && !gripButtonWasPressed) {
+                gripperClosed = !gripperClosed;
+            }
+
+            gripButtonWasPressed = gamepad.right_bumper;
         }
 
-        if(!gripperClosed) {
-            gripServo.setPosition(.2);
-        } else {
-            gripServo.setPosition(.5);
-        }
-
-        if(gamepad.right_bumper && !gripButtonWasPressed) {
-            gripperClosed = !gripperClosed;
-        }
-
-        gripButtonWasPressed = gamepad.right_bumper;
         deltaTime.reset();
 
         telemetry.addData("servo angle", servoAngleServounits);
@@ -202,8 +204,14 @@ public class ArmControllerIK {
         telemetry.addData("servo reverse offset", servoOffsetReverse);
     }
 
+    // PRE: X and Y are sane coordinates for a target position for the arm. If the given coordinates
+    //      are out of the reach of the arm, nothing will happen.
+    //
+    // POST: takes double X,Y for a target position in inches. X+ is towards the foundation gripper
+    //       end of the robot. Uses iterative inverse kinematics algorithm to find the correct/
+    //       optimal arm pose for the given position and sets the position on the motors to go to
+    //       the target position.
     public void setPositionIK(double x, double y) {
-
         targetX = x;
         targetY = y;
 
@@ -229,7 +237,6 @@ public class ArmControllerIK {
             }
 
             if(checkCollision(lowerAngle, upperAngle)) {
-
                 setLowerTargetAngle(lowerAngle);
                 setUpperTargetAngle(upperAngle);
             }
@@ -238,20 +245,21 @@ public class ArmControllerIK {
         }
     }
 
+    // takes double lowerAngle, upperAngle for radian angles for each arm segment. returns false if
+    // the given coordinates would make the arm hit the bot, otherwise returns true.
     public boolean checkCollision(double lowerAngle, double upperAngle) {
-
         double fky = Math.sin(lowerAngle) + Math.sin(upperAngle);
-        double jkx = Math.cos(lowerAngle) + Math.cos(upperAngle);
+        double fkx = Math.cos(lowerAngle) + Math.cos(upperAngle);
 
-//        if (lowerAngle )
-
-//        if(fky < 0) {
-//            return false;
-//        }
-
+        if(fky < 0.0 && (fkx < 0.0 && fkx > -18.0)) {
+            return false;
+        }
+        //add more constraints here
         return true;
     }
 
+    // takes a double, radians and moves the lower section of the arm to this angle. 0 is towards
+    //    // the non-arm (foundation gripper) end of the bot, pi is towards the arm end.
     public void setLowerTargetAngle(double radians) {
         //radians *= -1;
         radians -= STARTING_POS_RAD_LOWER;
@@ -260,6 +268,8 @@ public class ArmControllerIK {
         motorLower.setTargetPosition(ticks);
     }
 
+    // takes a double, radians and moves the upper section of the arm to this angle. 0 is towards
+    // the non-arm (foundation gripper) end of the bot, pi is towards the arm end.
     public void setUpperTargetAngle(double radians) {
         //radians *= -1;
         radians -= STARTING_POS_RAD_UPPER;
@@ -268,6 +278,8 @@ public class ArmControllerIK {
         motorUpper.setTargetPosition(ticks);
     }
 
+    // returns the current angle of the lower arm section in radians. 0 is towards
+    // the non-arm (foundation gripper) end of the bot, pi is towards the arm end.
     public double getLowerAngleRad() {
         int ticks = motorLower.getCurrentPosition();
         double revolutions = ticks / TICKS_PER_REVOLUTION_LOWER;
@@ -275,6 +287,8 @@ public class ArmControllerIK {
         return radians + STARTING_POS_RAD_LOWER;
     }
 
+    // returns the current angle of the upper arm section in radians. 0 is towards
+    // the non-arm (foundation gripper) end of the bot, pi is towards the arm end.
     public double getUpperAngleRad() {
         int ticks = motorUpper.getCurrentPosition();
         double revolutions = ticks / TICKS_PER_REVOLUTION_UPPER;
@@ -282,12 +296,23 @@ public class ArmControllerIK {
         return radians + STARTING_POS_RAD_UPPER;
     }
 
+
+    // PRE: double dist > 0. throws IllegalArgumentException if dist is <= 0.
+    //      X,Y coordinates double x, double y are within the reach of the arm (length1 - length2 <
+    //      distance < length1 + length2)
+    //
+    // POST: takes a position (double x, y) and a distance tolerance (double dist), both in inches.
+    //       positive x is in the direction of the arm end of the robot. returns an array of PVectors,
+    //       both 2d and of the length of the lower and upper arm segments rotated to have the
+    //       rotation of the respective segments. the IK solution found is always the one with the
+    //       higher middle point.
     private PVector[] doIKForDist(double x, double y, double dist) {
         if(distance(x, y) < LOWER_ARM_LENGTH - UPPER_ARM_LENGTH || distance(x, y) > LOWER_ARM_LENGTH + UPPER_ARM_LENGTH) {
             throw new IllegalArgumentException("cannot reach given coordinates");
+        } else if (dist <= 0) {
+            throw new IllegalArgumentException("IK distance tolerance of " + dist + " is invalid.");
         }
 
-//        long before = millis();
         double angle1;
         double angle2;
         PVector middle = new PVector(LOWER_ARM_LENGTH, 0);
@@ -298,12 +323,8 @@ public class ArmControllerIK {
         } else {
             angle1 = Math.PI;
         }
-        angle2 = Math.atan2(y - LOWER_ARM_LENGTH, x);
-        int i = 0;
+        //angle2 = Math.atan2(y - LOWER_ARM_LENGTH, x);
         while (distance(PVector.add(end, middle), x, y) > dist) {
-        /*println("iter", frameCount, ":", middle, PVector.add(middle, end), x);
-         println("iter", frameCount, ":", angle1, angle2, distance(PVector.add(end, middle), x, y));
-         println();*/
             if (x > 0) {
                 angle1 -= Math.PI / 360;
             } else {
@@ -314,11 +335,7 @@ public class ArmControllerIK {
             //update positions
             middle.rotate(angle1 - middle.heading());
             end.rotate(angle2 - end.heading());
-            i++;
         }
-//        println("millis:", millis() - before);
-//        println("iterations taken:", i);
-//        println(middle, end);
         return new PVector[] {middle, end};
     }
 
@@ -330,17 +347,17 @@ public class ArmControllerIK {
         return PVector.sub(p, new PVector(x, y)).mag();
     }
 
-
-
-    enum Mode {
-        CONTROLLER, E_STOP, AUTO
-    }
-
-    enum State {
-        RESET, DUCK, INTAKE, PLACING
-    }
-
-    enum Placing {
-        PLACING_0, PLACING_1, PLACING_2, PLACING_3
-    }
+//
+//
+//    enum Mode {
+//        CONTROLLER, E_STOP, AUTO
+//    }
+//
+//    enum State {
+//        RESET, DUCK, INTAKE, PLACING
+//    }
+//
+//    enum Placing {
+//        PLACING_0, PLACING_1, PLACING_2, PLACING_3
+//    }
 }
