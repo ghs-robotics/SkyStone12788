@@ -6,11 +6,11 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import com.qualcomm.robotcore.util.Range;
 
 
-@TeleOp(name="new arm control tester", group="Iterative Opmode")
-public class IKArmControllerTester extends OpMode
+@TeleOp(name="full teleop", group="Iterative Opmode")
+
+public class ArmFullTeleOp extends OpMode
 {
     // Declare OpMode members.
     private ElapsedTime runtime = new ElapsedTime();
@@ -21,7 +21,8 @@ public class IKArmControllerTester extends OpMode
     private double targy = 20;
     int placingPos = 1;
 
-    boolean upButtonWasDown, downButtonWasDown, yButtonWasDown, xButtonWasDown, aButtonWasDown, bButtonWasDown;
+    private boolean upButtonWasDown, downButtonWasDown, yButtonWasDown, xButtonWasDown, aButtonWasDown, bButtonWasDown;
+    private boolean isPlacing;
 
     /*
      * Code to run ONCE when the driver hits INIT
@@ -65,19 +66,30 @@ public class IKArmControllerTester extends OpMode
 
         if(onDpadUpPressed) {
             placingPos++;
+            if(isPlacing) {
+                targx = 10.0;
+                targy = 5.0 + 5.0*placingPos;
+            }
         } else if(onDpadDownPressed) {
             placingPos--;
+            if(isPlacing) {
+                targx = 10.0;
+                targy = 5.0 + 4.0*placingPos;
+            }
         }
 
         if(onYButtonPressed) {
+            isPlacing = true;
             targx = 10.0;
             targy = 5.0 + 5.0*placingPos;
         } else if (onXButtonPressed) {
+            isPlacing = false;
             targx = 1.0;
             targy = 5.0;
         } else if(onAButtonPressed) {
+            isPlacing = false;
             targx = -25.0;
-            targy = 6.0;
+            targy = 15.0;
         }
 
         //==========================================
@@ -88,6 +100,7 @@ public class IKArmControllerTester extends OpMode
         aButtonWasDown = gamepad1.a;
         bButtonWasDown = gamepad1.b;
         //==========================================
+        // other input logic
 
         double armBoost = (gamepad1.left_trigger * 2) + 1;
 
@@ -97,6 +110,7 @@ public class IKArmControllerTester extends OpMode
         targx -= gamepad1.left_stick_x * 20 * armBoost * (runtime.seconds());
         telemetry.addData("targx", targx);
 
+        //==========================================
         arm.update();
 
         runtime.reset();

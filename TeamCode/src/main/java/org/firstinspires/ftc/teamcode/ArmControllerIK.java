@@ -8,8 +8,6 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
-import sun.awt.motif.X11CNS11643;
-
 public class ArmControllerIK {
     private final String MOTOR_NAME_LOWER = "lowerMotor";
     private final String MOTOR_NAME_UPPER = "upperMotor";
@@ -180,16 +178,16 @@ public class ArmControllerIK {
             }
         } else {
             if (gamepad.dpad_left) {
-                servoOffsetReverse += .2 * deltaTime.seconds();
-            } else if (gamepad.dpad_right) {
                 servoOffsetReverse -= .2 * deltaTime.seconds();
+            } else if (gamepad.dpad_right) {
+                servoOffsetReverse += .2 * deltaTime.seconds();
             }
         }
 
         if(!gripperClosed) {
-            gripServo.setPosition(0);
+            gripServo.setPosition(.2);
         } else {
-            gripServo.setPosition(.38);
+            gripServo.setPosition(.5);
         }
 
         if(gamepad.right_bumper && !gripButtonWasPressed) {
@@ -217,11 +215,18 @@ public class ArmControllerIK {
             lowerAngle = Math.atan2(positions[0].y, positions[0].x);
             upperAngle = Math.atan2(positions[1].y, positions[1].x);
 
-            while (upperAngle < -Math.PI / 2)
-                upperAngle += Math.PI * 2;
+            if (x < 0) {
+                while (upperAngle < 0)
+                    upperAngle += Math.PI * 2;
 
-            while (upperAngle > Math.PI * 3 / 2)
-                upperAngle -= Math.PI * 2;
+
+                while (upperAngle > Math.PI * 2)
+                    upperAngle -= Math.PI * 2;
+            }
+
+            while(lowerAngle < 0) {
+                lowerAngle += 2 * Math.PI;
+            }
 
             if(checkCollision(lowerAngle, upperAngle)) {
 
