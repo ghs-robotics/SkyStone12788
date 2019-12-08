@@ -30,7 +30,7 @@ public class ArmFullTeleOp extends OpMode {
 
     private Gamepad driveGP, operatorGP;
     private boolean upButtonWasDown, downButtonWasDown, yButtonWasDown, xButtonWasDown, aButtonWasDown, bButtonWasDown, hookButtonWasDown;
-    private boolean isPlacing;
+    private boolean isPlacing, isDucking;
 
     /*
      * Code to run ONCE when the driver hits INIT
@@ -92,15 +92,24 @@ public class ArmFullTeleOp extends OpMode {
         }
 
         if(onYButtonPressed) {
+            // go to placing position
             isPlacing = true;
+            isDucking = false;
             targx = 10.0;
             targy = 5.0 + 5.0*placingPos;
         } else if (onXButtonPressed) {
+            // go to duck position
             isPlacing = false;
-            targx = 1.0;
-            targy = 5.0;
+            isDucking = true;
+//            targx = 1.0;
+//            targy = 5.0;
+            arm.setLowerTargetAngle(Math.PI / 4);
+            arm.setUpperTargetAngle(Math.PI);
+
         } else if(onAButtonPressed) {
+            // go to intake position
             isPlacing = false;
+            isDucking = false;
             targx = -25.0;
             targy = 15.0;
         }
@@ -119,14 +128,14 @@ public class ArmFullTeleOp extends OpMode {
         hookButtonWasDown = operatorGP.left_bumper || driveGP.left_bumper;
         //==========================================
         // other input logic
-
-        double armBoost = (operatorGP.left_trigger * 2) + 1;
-
-        arm.setPositionIK(targx, targy);
-        targy -= operatorGP.left_stick_y * 20 * armBoost * (runtime.seconds());
-        telemetry.addData("targy", targy);
-        targx -= operatorGP.left_stick_x * 20 * armBoost * (runtime.seconds());
-        telemetry.addData("targx", targx);
+        if(!isDucking) {
+            double armBoost = (operatorGP.left_trigger * 2) + 1;
+            arm.setPositionIK(targx, targy);
+            targy -= operatorGP.left_stick_y * 20 * armBoost * (runtime.seconds());
+            telemetry.addData("targy", targy);
+            targx -= operatorGP.left_stick_x * 20 * armBoost * (runtime.seconds());
+            telemetry.addData("targx", targx);
+        }
         //==========================================
 
         if(fGripperOpen) {
