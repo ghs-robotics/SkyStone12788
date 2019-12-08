@@ -19,7 +19,7 @@ public class ArmFullTeleOp extends OpMode {
 
     private final String LEFT_FOUNDATION_GRIPPER_NAME = "foundationLeft", RIGHT_FOUNDATION_GRIPPER_NAME = "foundationRight";
     private Servo hookLeftServo, hookRightServo;
-    private final double LEFT_FGRIPPER_CLOSED = 0, RIGHT_FGRIPPER_CLOSED = 0, LEFT_FGRIPPER_OPEN = 0, RIGHT_FGRIPPER_OPEN = 0;
+    private final double LEFT_FGRIPPER_CLOSED = .8, RIGHT_FGRIPPER_CLOSED = .8, LEFT_FGRIPPER_OPEN = .5, RIGHT_FGRIPPER_OPEN = .5;
     private boolean fGripperOpen = false;
 
     private ArmControllerIK arm;

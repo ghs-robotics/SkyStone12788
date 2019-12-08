@@ -29,23 +29,24 @@
 
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 @TeleOp(name="Mecanum and Arm", group="Iterative Opmode")
-@SuppressWarnings("unused")
+@Disabled
 public class MecanumAndArm extends OpMode {
     private ElapsedTime runtime = new ElapsedTime();
     private IMUWrangler imuWrangler;
     private MecanumDrive mecanumDrive;
     private VuforiaWrangler vuforiaWrangler;
     private Navigator navigator;
-    private ArmControl armControl;
+    private ArmControllerIK armControl;
 
     public void init() {
-        armControl = new ArmControl(hardwareMap, telemetry, gamepad2, false);
+        armControl = new ArmControllerIK(hardwareMap, telemetry, gamepad2, false, false);
         imuWrangler = new IMUWrangler(hardwareMap);
         vuforiaWrangler = new VuforiaWrangler(hardwareMap, telemetry, PhoneInfoPackage.getPhoneInfoPackage());
         mecanumDrive = new MecanumDrive(hardwareMap, telemetry, gamepad1, imuWrangler, vuforiaWrangler,false, false);
@@ -59,7 +60,7 @@ public class MecanumAndArm extends OpMode {
         runtime.reset();
         imuWrangler.start();
         vuforiaWrangler.flashlight(true);
-        armControl.mode = ArmControl.Mode.CONTROLLER;
+//        armControl.mode = ArmControl.Mode.CONTROLLER;
     }
 
     @Override

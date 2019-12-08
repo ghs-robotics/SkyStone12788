@@ -250,7 +250,8 @@ class MecanumDrive {
     }
 
     // drives using x, y, and r powers in range of -1 to 1
-    private void driveXYR(double x, double y, double r, boolean simple) {
+    //todo: reprivatize and make navigator time move better
+    public void driveXYR(double x, double y, double r, boolean simple) {
 
         telemetry.addData("x", x);
         telemetry.addData("y", y);

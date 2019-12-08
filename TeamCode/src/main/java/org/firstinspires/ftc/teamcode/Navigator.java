@@ -87,6 +87,8 @@ public class Navigator {
                 case TRANSLATION_AND_ROTATION:
                     runPositionAndRotation(mecCurrent);
                     break;
+                case TIME_MOVE:
+                    runTimeMove(mecCurrent);
                 case PAUSE:
 
                     break;
@@ -109,8 +111,6 @@ public class Navigator {
         mecanumDrive.setTarget(pose.r);
     }
 
-
-
     private void runPositionAndRotation(MecanumPose pose) {
         mecanumDrive.setMode(MecanumDrive.Mode.AUTO_TRANSLATE_ROTATE);
 
@@ -122,6 +122,10 @@ public class Navigator {
             mecanumDrive.setTarget(pose.x, pose.y);
         else
             mecanumDrive.setMode(MecanumDrive.Mode.E_STOP);
+    }
+
+    private void runTimeMove(MecanumPose pose) {
+        mecanumDrive.driveXYR(pose.x, pose.y, pose.r, true);
     }
 
     private void runArm(ArmPose pose) {
@@ -143,6 +147,7 @@ public class Navigator {
 //        public double time;
         public Motion motion;
         public boolean waitForStable = false;
+
         MecanumPose(double x, double y) {
             this.x = x;
             this.y = y;
@@ -158,6 +163,15 @@ public class Navigator {
             this.r = r;
             motion = Motion.TRANSLATION_AND_ROTATION;
         }
+
+        MecanumPose(double x, double y, double r, double time) {
+            this.x = x;
+            this.y = y;
+            this.r = r;
+            this.time = time;
+            this.motion = Motion.TIME_MOVE;
+        }
+
         MecanumPose(boolean waitForStable, double time) {
             this.time = time;
             this.waitForStable = waitForStable;
@@ -178,5 +192,5 @@ public class Navigator {
         }
     }
 
-    enum Motion {TRANSLATION, ROTATION, TRANSLATION_AND_ROTATION, PAUSE}
+    enum Motion {TRANSLATION, ROTATION, TRANSLATION_AND_ROTATION, TIME_MOVE, PAUSE}
 }
