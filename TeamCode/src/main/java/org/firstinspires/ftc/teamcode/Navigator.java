@@ -11,14 +11,14 @@ import javax.crypto.ExemptionMechanism;
 
 public class Navigator {
     private MecanumDrive mecanumDrive;
-    private ArmControl arm;
+    private ArmControllerIK arm;
     private VuforiaWrangler vuforiaWrangler;
     private List<Pose> waypoints;
     private int index;
     private Telemetry telemetry;
     private ElapsedTime elapsedTime;
 
-    public Navigator(MecanumDrive mecanumDrive, ArmControl arm, VuforiaWrangler vuforiaWrangler, Telemetry telemetry) {
+    public Navigator(MecanumDrive mecanumDrive, ArmControllerIK arm, VuforiaWrangler vuforiaWrangler, Telemetry telemetry) {
         this.mecanumDrive = mecanumDrive;
         this.vuforiaWrangler = vuforiaWrangler;
         this.telemetry = telemetry;
@@ -60,9 +60,9 @@ public class Navigator {
             }
         } else if(current instanceof ArmPose && arm != null) {
             ArmPose armCurrent = (ArmPose)current;
-            telemetry.addData("arm Mode", armCurrent.mode);
-            telemetry.addData("arm state", armCurrent.state);
-            telemetry.addData("arm placing state", armCurrent.placingState);
+//            telemetry.addData("arm Mode", armCurrent.mode);
+//            telemetry.addData("arm state", armCurrent.state);
+//            telemetry.addData("arm placing state", armCurrent.placingState);
             if(!arm.isDone()) {
                 elapsedTime.reset();
             }
@@ -92,7 +92,7 @@ public class Navigator {
                     break;
             }
         } else if(current instanceof ArmPose && arm != null) {
-            setArmState((ArmPose)current);
+            runArm((ArmPose)current);
         }
     }
 
@@ -124,12 +124,13 @@ public class Navigator {
             mecanumDrive.setMode(MecanumDrive.Mode.E_STOP);
     }
 
-    private void setArmState(ArmPose pose) {
-        arm.targetState = pose.state;
-        if (pose.placingState != null){
-            arm.targetPlacingState = pose.placingState;
-        }
-        arm.mode = pose.mode;
+    private void runArm(ArmPose pose) {
+//        arm.targetState = pose.state;
+//        if (pose.placingState != null){
+//            arm.targetPlacingState = pose.placingState;
+//        }
+//        arm.mode = pose.mode;
+        arm.setPositionIK(pose.x, pose.y);
     }
 
     class Pose {
@@ -165,20 +166,15 @@ public class Navigator {
     }
 
     class ArmPose extends Pose{
-        public ArmControl.Mode mode;
-        public ArmControl.State state;
-        public ArmControl.Placing placingState;
-//        public double time;
+//        public ArmControl.Mode mode;
+//        public ArmControl.State state;
+//        public ArmControl.Placing placingState;
+        public double x, y;
 
-        public ArmPose(ArmControl.Mode mode, ArmControl.State state, ArmControl.Placing placingState, double time) {
-            this.mode = mode;
-            this.state = state;
-            this.placingState = placingState;
+        public ArmPose(double X, double Y, double time) {
+            this.x = X;
+            this.y = Y;
             this.time = time;
-        }
-
-        public ArmPose(ArmControl.Mode mode, ArmControl.State state, double time) {
-            this(mode, state, null, time);
         }
     }
 
