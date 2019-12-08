@@ -36,10 +36,6 @@ public class ArmControllerIK {
     private Servo wristServo;
     private Servo gripServo;
 
-    // an offset to make the gripper stay level. todo: fix number & add reverse number
-    private double servoOffset = 0.37315;
-    private double servoOffsetReverse;
-
     // PIDf coefficients for each arm section
     private final double
             CONTROL_P_UPPER = 10,
@@ -51,10 +47,17 @@ public class ArmControllerIK {
             CONTROL_F_UPPER_MULT = -3,
             CONTROL_F_LOWER_MULT = -3;
 
+    private final double IK_POSITION_TOLERANCE = .1;
+
     // vars used to calculate feed-forward power values
     private double
             fUpper = 0,
             fLower = 0;
+
+
+    // an offset to make the gripper stay level. todo: fix number & add reverse number
+    private double servoOffset = 0.37315;
+    private double servoOffsetReverse;
 
     // the current angle each section of the arm is targeting, radians.
     // 0 is horizontal towards the foundation gripper end of the bot.
@@ -204,6 +207,17 @@ public class ArmControllerIK {
         telemetry.addData("servo reverse offset", servoOffsetReverse);
     }
 
+    public boolean isDone() {
+        double fky = Math.sin(getLowerAngleRad()) + Math.sin(getUpperAngleRad());
+        double fkx = Math.cos(getLowerAngleRad()) + Math.cos(getUpperAngleRad());
+
+        if(Math.abs(fky - targetX) <= IK_POSITION_TOLERANCE && Math.abs(fkx - targetX) <= IK_POSITION_TOLERANCE) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     // PRE: X and Y are sane coordinates for a target position for the arm. If the given coordinates
     //      are out of the reach of the arm, nothing will happen.
     //
@@ -218,7 +232,7 @@ public class ArmControllerIK {
         x *= -1;
 
         try {
-            PVector[] positions = doIKForDist(x, y, 0.1);
+            PVector[] positions = doIKForDist(x, y, IK_POSITION_TOLERANCE);
 
             lowerAngle = Math.atan2(positions[0].y, positions[0].x);
             upperAngle = Math.atan2(positions[1].y, positions[1].x);
@@ -339,11 +353,11 @@ public class ArmControllerIK {
         return new PVector[] {middle, end};
     }
 
-    double distance(double x, double y) {
+    private double distance(double x, double y) {
         return Math.sqrt(x*x + y*y);
     }
 
-    double distance(PVector p, double x, double y) {
+    private double distance(PVector p, double x, double y) {
         return PVector.sub(p, new PVector(x, y)).mag();
     }
 
