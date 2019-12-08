@@ -95,7 +95,8 @@ class MecanumDrive {
         blDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         brDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        resetLastTicks();
+        if(useEncoders)
+            resetLastTicks();
     }
 
     // calculates powers according to drive mode and updates hardware
@@ -104,7 +105,8 @@ class MecanumDrive {
         transdone = false;
         done = false;
 //        updateLocationRotationVelocity();
-        resetLastTicks();
+        if(useEncoders)
+            resetLastTicks();
 
         if (mode == null)
             mode = Mode.E_STOP;
