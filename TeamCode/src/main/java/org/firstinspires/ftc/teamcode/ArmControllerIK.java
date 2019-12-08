@@ -88,7 +88,6 @@ public class ArmControllerIK {
             setUpMotorHardware(resetEncoders);
     }
 
-
     private void setUpMotorHardware(boolean resetEncoders) {
         if(!makeHardwareCalls) {
             throw new IllegalStateException("setUpMotorHardware called, but makeHardwareCalls is false!");
@@ -147,7 +146,6 @@ public class ArmControllerIK {
         motorUpper.setVelocityPIDFCoefficients(CONTROL_P_UPPER, CONTROL_I_UPPER, CONTROL_D_UPPER, fUpper);
         motorLower.setVelocityPIDFCoefficients(CONTROL_P_LOWER, CONTROL_I_LOWER, CONTROL_D_LOWER, fLower);
     }
-
 
     public void update() {
         updateCooefficents();
@@ -232,7 +230,9 @@ public class ArmControllerIK {
         x *= -1;
 
         try {
+            //     this can error VVV
             PVector[] positions = doIKForDist(x, y, IK_POSITION_TOLERANCE);
+            //                    ^^^
 
             lowerAngle = Math.atan2(positions[0].y, positions[0].x);
             upperAngle = Math.atan2(positions[1].y, positions[1].x);
@@ -273,8 +273,11 @@ public class ArmControllerIK {
     }
 
     // takes a double, radians and moves the lower section of the arm to this angle. 0 is towards
-    //    // the non-arm (foundation gripper) end of the bot, pi is towards the arm end.
+    // the non-arm (foundation gripper) end of the bot, pi is towards the arm end.
     public void setLowerTargetAngle(double radians) {
+        if(lowerAngle != radians)
+            lowerAngle = radians;
+
         //radians *= -1;
         radians -= STARTING_POS_RAD_LOWER;
         double revolutions = radians / (2 * Math.PI);
@@ -285,6 +288,9 @@ public class ArmControllerIK {
     // takes a double, radians and moves the upper section of the arm to this angle. 0 is towards
     // the non-arm (foundation gripper) end of the bot, pi is towards the arm end.
     public void setUpperTargetAngle(double radians) {
+        if(lowerAngle != radians)
+            lowerAngle = radians;
+
         //radians *= -1;
         radians -= STARTING_POS_RAD_UPPER;
         double revolutions = radians / (2 * Math.PI);
