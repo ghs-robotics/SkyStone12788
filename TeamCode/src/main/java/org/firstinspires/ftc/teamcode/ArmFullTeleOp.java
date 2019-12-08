@@ -5,23 +5,31 @@ import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.Gamepad;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 
 @TeleOp(name="full teleop", group="Iterative Opmode")
 
-public class ArmFullTeleOp extends OpMode
-{
+public class ArmFullTeleOp extends OpMode {
+
     // Declare OpMode members.
     private ElapsedTime runtime = new ElapsedTime();
-    private DcMotor leftDrive = null;
-    private DcMotor rightDrive = null;
+
+    private final String LEFT_FOUNDATION_GRIPPER_NAME = "foundationLeft", RIGHT_FOUNDATION_GRIPPER_NAME = "foundationRight";
+    private Servo hookLeftServo, hookRightServo;
+    private final double LEFT_FGRIPPER_CLOSED = 0, RIGHT_FGRIPPER_CLOSED = 0, LEFT_FGRIPPER_OPEN = 0, RIGHT_FGRIPPER_OPEN = 0;
+    private boolean fGripperOpen = false;
+
     private ArmControllerIK arm;
     private double targx = 8;
     private double targy = 20;
     int placingPos = 1;
 
-    private boolean upButtonWasDown, downButtonWasDown, yButtonWasDown, xButtonWasDown, aButtonWasDown, bButtonWasDown;
+
+    private Gamepad driveGP, operatorGP;
+    private boolean upButtonWasDown, downButtonWasDown, yButtonWasDown, xButtonWasDown, aButtonWasDown, bButtonWasDown, hookButtonWasDown;
     private boolean isPlacing;
 
     /*
@@ -29,7 +37,11 @@ public class ArmFullTeleOp extends OpMode
      */
     @Override
     public void init() {
-        arm = new ArmControllerIK(hardwareMap, telemetry, gamepad1, true, true);
+        arm = new ArmControllerIK(hardwareMap, telemetry, gamepad2, true, true);
+        hookLeftServo = hardwareMap.get(Servo.class, LEFT_FOUNDATION_GRIPPER_NAME);
+        hookLeftServo = hardwareMap.get(Servo.class, RIGHT_FOUNDATION_GRIPPER_NAME);
+        driveGP = gamepad1;
+        operatorGP = gamepad2;
     }
 
     /*
@@ -55,12 +67,13 @@ public class ArmFullTeleOp extends OpMode
 
         //==========================================
         // clarity vars
-        boolean onDpadUpPressed = gamepad1.dpad_up && !upButtonWasDown;
-        boolean onDpadDownPressed = gamepad1.dpad_down && !downButtonWasDown;
-        boolean onAButtonPressed = gamepad1.a && !aButtonWasDown;
-        boolean onXButtonPressed = gamepad1.x && !xButtonWasDown;
-        boolean onYButtonPressed = gamepad1.y && !yButtonWasDown;
-        boolean onBButtonPressed = gamepad1.b && !bButtonWasDown;
+        boolean onDpadUpPressed = operatorGP.dpad_up && !upButtonWasDown;
+        boolean onDpadDownPressed = operatorGP.dpad_down && !downButtonWasDown;
+        boolean onAButtonPressed = operatorGP.a && !aButtonWasDown;
+        boolean onXButtonPressed = operatorGP.x && !xButtonWasDown;
+        boolean onYButtonPressed = operatorGP.y && !yButtonWasDown;
+        boolean onBButtonPressed = operatorGP.b && !bButtonWasDown;
+        boolean onHookButtonPressed = (driveGP.left_bumper && !hookButtonWasDown) || (operatorGP.left_bumper && !hookButtonWasDown);
         //==========================================
         // button press logic
 
@@ -92,25 +105,38 @@ public class ArmFullTeleOp extends OpMode
             targy = 15.0;
         }
 
+        if(onHookButtonPressed) {
+            fGripperOpen = !fGripperOpen;
+        }
+
         //==========================================
-        upButtonWasDown = gamepad1.dpad_up;
-        downButtonWasDown = gamepad1.dpad_down;
-        yButtonWasDown = gamepad1.y;
-        xButtonWasDown = gamepad1.x;
-        aButtonWasDown = gamepad1.a;
-        bButtonWasDown = gamepad1.b;
+        upButtonWasDown = operatorGP.dpad_up;
+        downButtonWasDown = operatorGP.dpad_down;
+        yButtonWasDown = operatorGP.y;
+        xButtonWasDown = operatorGP.x;
+        aButtonWasDown = operatorGP.a;
+        bButtonWasDown = operatorGP.b;
+        hookButtonWasDown = operatorGP.left_bumper || driveGP.left_bumper;
         //==========================================
         // other input logic
 
-        double armBoost = (gamepad1.left_trigger * 2) + 1;
+        double armBoost = (operatorGP.left_trigger * 2) + 1;
 
         arm.setPositionIK(targx, targy);
-        targy -= gamepad1.left_stick_y * 20 * armBoost * (runtime.seconds());
+        targy -= operatorGP.left_stick_y * 20 * armBoost * (runtime.seconds());
         telemetry.addData("targy", targy);
-        targx -= gamepad1.left_stick_x * 20 * armBoost * (runtime.seconds());
+        targx -= operatorGP.left_stick_x * 20 * armBoost * (runtime.seconds());
         telemetry.addData("targx", targx);
-
         //==========================================
+
+        if(fGripperOpen) {
+            hookLeftServo.setPosition(LEFT_FGRIPPER_OPEN);
+            hookRightServo.setPosition(RIGHT_FGRIPPER_OPEN);
+        } else {
+            hookLeftServo.setPosition(LEFT_FGRIPPER_CLOSED);
+            hookRightServo.setPosition(RIGHT_FGRIPPER_CLOSED);
+        }
+
         arm.update();
 
         runtime.reset();
