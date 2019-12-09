@@ -18,8 +18,8 @@ public class ArmControllerIK {
     private final double TICKS_PER_REVOLUTION_LOWER = 3892;
     private final double TICKS_PER_REVOLUTION_UPPER = 1425.2 * 2;
     // the position the arm will think it is in on start.
-    private final double STARTING_POS_RAD_LOWER = 0,
-                        STARTING_POS_RAD_UPPER = Math.PI;
+    private final double STARTING_POS_RAD_UPPER = Math.PI * (-130.0 / 180.0),
+                        STARTING_POS_RAD_LOWER = Math.PI * (40.0 / 180.0);
 
     // the lengths of the two sections of arm.
     private final double LOWER_ARM_LENGTH = 21.075, UPPER_ARM_LENGTH = 17.625;
@@ -39,10 +39,10 @@ public class ArmControllerIK {
     // PIDf coefficients for each arm section
     private final double
             CONTROL_P_UPPER = 10,
-            CONTROL_I_UPPER = .1,
+            CONTROL_I_UPPER = .0,
             CONTROL_D_UPPER = 4,
             CONTROL_P_LOWER = 10,
-            CONTROL_I_LOWER = .1,
+            CONTROL_I_LOWER = .0,
             CONTROL_D_LOWER = 4,
             CONTROL_F_UPPER_MULT = -3,
             CONTROL_F_LOWER_MULT = -3;
@@ -56,8 +56,8 @@ public class ArmControllerIK {
 
 
     // an offset to make the gripper stay level. todo: fix number & add reverse number
-    private double servoOffset = 0.37315;
-    private double servoOffsetReverse;
+    private double servoOffset = 0.2899318878;
+    private double servoOffsetReverse = -0.910444602;
 
     // the current angle each section of the arm is targeting, radians.
     // 0 is horizontal towards the foundation gripper end of the bot.
@@ -68,6 +68,8 @@ public class ArmControllerIK {
     private boolean gripperClosed = false;
     //for input handling.
     private boolean gripButtonWasPressed = false;
+
+    public boolean doServo = false;
 
     /**
      * If `gamepad` is null, don't use the gamepad; in this case, setPosition will be used to
@@ -165,7 +167,17 @@ public class ArmControllerIK {
             servoAngle -= (360/280);
         }
 
-        if(makeHardwareCalls) wristServo.setPosition(servoAngleServounits);
+
+        telemetry.addData("lower target angle", lowerAngle);
+        telemetry.addData("current lower encoder angle (rad)", getLowerAngleRad());
+        telemetry.addData("upper target angle", upperAngle);
+        telemetry.addData("current upper encoder angle (rad)", getUpperAngleRad());
+
+
+
+
+
+        if(makeHardwareCalls && doServo) wristServo.setPosition(servoAngleServounits);
 
         if(gamepad != null) {
             // changing the gripper angle using the D-pad
@@ -184,7 +196,7 @@ public class ArmControllerIK {
             }
 
             //gripper control
-            if (makeHardwareCalls) {
+            if (makeHardwareCalls && doServo) {
                 if (!gripperClosed) {
                     gripServo.setPosition(.2);
                 } else {
@@ -262,14 +274,15 @@ public class ArmControllerIK {
     // takes double lowerAngle, upperAngle for radian angles for each arm segment. returns false if
     // the given coordinates would make the arm hit the bot, otherwise returns true.
     public boolean checkCollision(double lowerAngle, double upperAngle) {
-        double fky = Math.sin(lowerAngle) + Math.sin(upperAngle);
-        double fkx = Math.cos(lowerAngle) + Math.cos(upperAngle);
-
-        if(fky < 0.0 && (fkx < 0.0 && fkx > -18.0)) {
-            return false;
-        }
-        //add more constraints here
         return true;
+//        double fky = Math.sin(lowerAngle) + Math.sin(upperAngle);
+//        double fkx = Math.cos(lowerAngle) + Math.cos(upperAngle);
+//
+//        if(fky < 0.0 && (fkx < 0.0 && fkx > -18.0)) {
+//            return false;
+//        }
+//        //add more constraints here
+//        return true;
     }
 
     // takes a double, radians and moves the lower section of the arm to this angle. 0 is towards
@@ -277,6 +290,9 @@ public class ArmControllerIK {
     public void setLowerTargetAngle(double radians) {
         if(lowerAngle != radians)
             lowerAngle = radians;
+
+        telemetry.addData("lower target angle", radians);
+        telemetry.addData("current encoder angle (rad)", getLowerAngleRad());
 
         //radians *= -1;
         radians -= STARTING_POS_RAD_LOWER;
@@ -290,6 +306,10 @@ public class ArmControllerIK {
     public void setUpperTargetAngle(double radians) {
         if(lowerAngle != radians)
             lowerAngle = radians;
+
+
+        telemetry.addData("upper target angle", radians);
+        telemetry.addData("current encoder angle (rad)", getLowerAngleRad());
 
         //radians *= -1;
         radians -= STARTING_POS_RAD_UPPER;

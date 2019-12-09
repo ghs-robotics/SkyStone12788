@@ -84,6 +84,7 @@ public class AdvancedMecanum extends OpMode {
     @Override
     public void start() {
         runtime.reset();
+
         imuWrangler.start();
 //        vuforiaWrangler.flashlight(true);
     }
