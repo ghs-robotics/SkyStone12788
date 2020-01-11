@@ -22,6 +22,7 @@ public class FoundationGripper {
     public FoundationGripper(Servo l, Servo r) {
         left = l;
         right = r;
+        state = GripperState.BLOCK_OPEN;
     }
 
     public void update(boolean increment, boolean decrement) {
