@@ -198,9 +198,9 @@ public class ArmControllerIK {
             //gripper control
             if (makeHardwareCalls && doServo) {
                 if (!gripperClosed) {
-                    gripServo.setPosition(.2);
+                    gripServo.setPosition(.1);
                 } else {
-                    gripServo.setPosition(.5);
+                    gripServo.setPosition(.8);
                 }
             }
             if (gamepad.right_bumper && !gripButtonWasPressed) {
